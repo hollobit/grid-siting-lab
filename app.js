@@ -221,6 +221,11 @@ const coolingCapexFactor = { air: 1, hybrid: 1.04, water: 1.09 };
 // 냉각수 가용량 프록시(m³/년): 취수원 스트레스 기준 탐색용 값
 const WATER_AVAIL_M3 = { LOW: 3000000, MED: 1200000 };
 
+// 컴퓨트 환산 프록시: H100급 가속기 서버 환산 전력과 FP8 연산력
+const KW_PER_ACCELERATOR = 1.2; // 가속기 1장당 서버 환산 IT 전력(kW)
+const ACCELERATOR_IT_SHARE = .85; // IT load 중 가속기 비중 프록시
+const PFLOPS_PER_ACCELERATOR = 2; // FP8 dense 기준 프록시
+
 const factorLabels = [
   ["계통 접근성", "grid"], ["수전 여유", "reserve"], ["초고속 백본", "telecom"],
   ["배후 도시", "urban"], ["도로·교통", "transport"], ["클라우드·기존 IDC", "cloud"],
@@ -953,6 +958,12 @@ function calculateScenario(showMessage = false) {
   $("#capacity-note").textContent = load > maxIt
     ? `현재 IT LOAD ${load} MW가 추정 한도를 초과합니다`
     : `현재 조건(N${redundancy ? `+${redundancy}` : ""} · ${cooling.label} · 부하율 ${Math.round(utilization * 100)}%) 최대 추정`;
+  renderBrief({
+    load, pue, redundancy, utilization, cooling, env,
+    annualEnergy, waterUse, carbon, powerCost, intake, headroom,
+    capex, capexDelta, gridConnectCost, pueCapexFactor,
+    maxIt, gridMaxIt, waterMaxIt, bindingConstraint, waterAlert,
+  });
   [$("#load-range"), $("#pue-range"), $("#redundancy-range"), $("#util-range")].forEach(updateRangeFill);
   if (showMessage) {
     window.clearTimeout(simulationTimer);
@@ -965,6 +976,74 @@ function calculateScenario(showMessage = false) {
       showToast(`${selected.name} · ${annualEnergy.toLocaleString()} GWh 수요 시나리오를 계산했습니다`);
     }, 600);
   }
+}
+
+// 시뮬레이션 결과를 장점/단점/컴퓨트 용량/개선 방향 설명문으로 조립하는 규칙 기반 해석기
+function renderBrief(s) {
+  const wrap = $("#brief-grid");
+  if (!wrap) return;
+  const site = selected;
+  const f = site.factors;
+  const reality = site.gridReality;
+  const strengths = [];
+  const risks = [];
+  const actions = [];
+
+  // ---- 장점 ----
+  const hvKmValue = reality ? reality.nearestHv : parseFloat(site.distance) || 99;
+  if (f.grid >= 85 && hvKmValue <= 10) strengths.push(`계통 접근성이 최상급입니다 — ${site.grid} 회랑, 최근접 고압선 ${site.distance}.`);
+  else if (f.grid >= 70) strengths.push(`계통 접근성이 양호합니다 (${site.grid}, 최근접 ${site.distance}).`);
+  if (reality && reality.mw50 >= 5000) strengths.push(`반경 50 km 매핑 발전용량 ${reality.mw50.toLocaleString()} MW · 발전소 ${reality.plants50.toLocaleString()}개 — 현재 수요(${s.intake.toFixed(0)} MW)는 그 ${((s.intake / reality.mw50) * 100).toFixed(1)}% 수준입니다.`);
+  if (reality && reality.hvLines50 >= 40) strengths.push(`345 kV+ 회선이 반경 50 km에 ${reality.hvLines50}개 지나 이중 인입 경로 확보에 유리합니다.`);
+  if (s.capexDelta <= 0) strengths.push(`CAPEX 개산이 표준구성보다 ${Math.abs(s.capexDelta).toFixed(1)}% 낮습니다 (총 ${s.capex.toLocaleString()}억원).`);
+  if (s.env.waterStress === "LOW" && s.cooling.wue >= .9) strengths.push(`취수원 스트레스가 낮아(${s.env.waterSource}) ${s.cooling.label} 냉각의 용수 리스크가 작습니다.`);
+  if (f.telecom >= 80) strengths.push("초고속 백본 접근성이 좋아 저지연 서빙·멀티리전 구성에 유리합니다.");
+  if (s.env.carbonIntensity <= .40) strengths.push(`지역 탄소집약도 프록시가 낮아(${s.env.carbonIntensity.toFixed(2)} kg/kWh) 동일 부하 대비 배출이 적습니다.`);
+  if (!strengths.length) strengths.push("두드러진 강점 요인이 없습니다 — 인접 후보지와 비교 검토를 권장합니다.");
+
+  // ---- 단점·리스크 ----
+  if (s.headroom < 0) risks.push(`필요 수전용량 ${s.intake.toFixed(0)} MW가 수전 여유를 ${Math.abs(Math.round(s.headroom))} MW 초과합니다 — 계통 보강 없이는 수용이 어렵습니다.`);
+  if (s.load > s.maxIt) risks.push(`현재 IT LOAD ${s.load} MW가 입지 최대 추정치(~${Math.round(s.maxIt)} MW)를 초과합니다 (${s.bindingConstraint} 병목).`);
+  if (s.waterAlert || (s.env.waterStress !== "LOW" && s.cooling.wue >= .9)) risks.push(`용수 스트레스(${s.env.waterStress}) 지역에서 ${s.cooling.label} 냉각은 연간 ${s.waterUse.toLocaleString()} m³ 취수 협의가 전제됩니다.`);
+  if (s.env.carbonIntensity >= .45) risks.push(`지역 계통 탄소집약도가 높아(연 ${s.carbon.toLocaleString()} tCO₂ 프록시) RE 조달 없이는 지속가능성 목표 달성이 어렵습니다.`);
+  if (s.capexDelta > 10) risks.push(`CAPEX가 표준구성 대비 ${s.capexDelta.toFixed(1)}% 높습니다 — 계통 인입 ${Math.round(s.gridConnectCost).toLocaleString()}억원 비중을 확인하세요.`);
+  const weakFactors = factorLabels.filter(([, key]) => (f[key] ?? 100) <= 60).map(([label, key]) => `${label}(${f[key]})`);
+  if (weakFactors.length) risks.push(`취약 요인: ${weakFactors.slice(0, 3).join(" · ")} — 초기 스크리닝 기준 하위 구간입니다.`);
+  if (site.id === "custom") risks.push("사용자 지정 지점은 재해·토지 요인이 미산정 중립값(60)입니다 — 정식 입지조사가 필요합니다.");
+  if (!risks.length) risks.push("시나리오 기준으로 치명적 리스크는 보이지 않습니다. 단, 모든 값은 공개 데이터 프록시입니다.");
+
+  // ---- 기대 컴퓨트 용량 ----
+  const accels = Math.round((s.load * 1000 * ACCELERATOR_IT_SHARE) / KW_PER_ACCELERATOR);
+  const maxAccels = Math.round((s.maxIt * 1000 * ACCELERATOR_IT_SHARE) / KW_PER_ACCELERATOR);
+  const eflops = (accels * PFLOPS_PER_ACCELERATOR) / 1000;
+  const maxEflops = (maxAccels * PFLOPS_PER_ACCELERATOR) / 1000;
+  const frontierPct = Math.round((accels / 25000) * 100);
+  const computeText = `현재 조건(IT ${s.load} MW · 부하율 ${Math.round(s.utilization * 100)}%)에서 H100급 가속기 약 <b>${accels.toLocaleString()}장</b>, FP8 기준 약 <b>${eflops.toFixed(1)} EFLOPS</b>를 수용할 수 있습니다 — 프론티어급 학습 클러스터(약 2.5만 장)의 ${frontierPct}% 규모입니다. 입지 최대 추정(~${Math.round(s.maxIt)} MW, ${s.bindingConstraint} 병목)까지 확장하면 약 <b>${maxAccels.toLocaleString()}장 · ${maxEflops.toFixed(1)} EFLOPS</b>까지 가능합니다. 연간 ${s.annualEnergy.toLocaleString()} GWh 전력과 전기요금 약 ${s.powerCost.toLocaleString()}억원이 소요됩니다. (장당 1.2 kW 서버 환산 · 가속기 비중 85% 프록시)`;
+
+  // ---- 개선 방향 ----
+  if (s.bindingConstraint === "계통 수전") actions.push("한전 계통접속 사전검토로 실제 여유용량·접속비를 확정하고, 전용 변전소·이중 인입(155/345 kV) 옵션을 비교하세요.");
+  else actions.push("공업용수 재배분·하수 재이용수(중수) 협의로 용수 한도를 늘리거나 공랭 비중을 높여 병목을 해소하세요.");
+  if (s.cooling.wue >= 1.8 && s.env.waterStress !== "LOW") actions.push(`하이브리드 냉각 전환 시 용수를 연 약 ${Math.round(s.waterUse / 2).toLocaleString()} m³(50%) 절감할 수 있습니다.`);
+  if (s.pue > 1.2) {
+    const savedGwh = Math.round(s.load * s.utilization * (s.pue - 1.15) * 8.76);
+    actions.push(`PUE를 1.15까지 낮추면 연간 약 ${savedGwh.toLocaleString()} GWh(전기요금 약 ${Math.round(savedGwh * 1.6).toLocaleString()}억원)를 절감합니다 — 수랭 밀도 상향이 유효합니다.`);
+  }
+  if (s.redundancy === 2) {
+    const saved = Math.round(s.load * CAPEX_PER_IT_MW * coolingCapexFactor[coolingMode] * s.pueCapexFactor * .12);
+    actions.push(`전체 N+2가 필수가 아니라면 학습 전용 구역을 N+1로 낮춰 CAPEX 약 ${saved.toLocaleString()}억원을 절감할 수 있습니다.`);
+  }
+  if (s.env.carbonIntensity >= .42) actions.push("재생에너지 PPA·REC 조달로 탄소집약도를 상쇄하세요 — 호남·해상풍력권 인접 입지는 직접 PPA 협상력이 있습니다.");
+  if (s.load < s.maxIt * .6 && s.headroom > 20) actions.push(`수전 여유가 남습니다 — 단계 증설(현재 ${s.load} MW → 최대 ~${Math.round(s.maxIt)} MW) 마스터플랜으로 부지·변전 용량을 선확보하세요.`);
+  if (site.id === "custom") actions.push("토지 용도지역·재해이력·인허가 조건 현장조사로 미산정 요인을 보완한 뒤 정식 후보로 승격하세요.");
+
+  const list = (items) => `<ul>${items.slice(0, 4).map((item) => `<li>${item}</li>`).join("")}</ul>`;
+  wrap.innerHTML = `
+    <div class="brief-block"><h3 class="brief-title strength">장점</h3>${list(strengths)}</div>
+    <div class="brief-block"><h3 class="brief-title risk">단점 · 리스크</h3>${list(risks)}</div>
+    <div class="brief-block brief-compute"><h3 class="brief-title compute">기대 컴퓨트 용량</h3><p>${computeText}</p></div>
+    <div class="brief-block"><h3 class="brief-title action">개선 방향</h3>${list(actions)}</div>
+  `;
+  $("#brief-site-name").textContent = site.name;
 }
 
 function bindUI() {
