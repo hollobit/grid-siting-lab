@@ -18,10 +18,11 @@ GitHub Pages: https://hollobit.github.io/grid-siting-lab/
   - 발전소 4,089개 / 매핑 발전량 121,404 MW (OIM stats 2026-06-25)
   - 전력선 15,176 km
   - 154 kV 9,420 km, 345 kV 4,584 km, 765 kV 557 km
-- **OSM 전국 전력망 정적 스냅샷 (2026-07-15 추출)**
+- **OSM 전국 전력망·교통 정적 스냅샷 (2026-07-15 추출)**
   - `data/kr_power_lines.json` — 송전선 3,652개 way (765 kV 41 · 345 kV 847 · 154 kV 2,102 · 기타 662)
   - `data/kr_power_plants.json` — 발전소 4,129개 (태그된 출력 합계 약 124.3 GW), 발전원별 색상·용량 비례 표시
-  - 후보지 반경 50 km의 매핑 발전용량·발전소 수·345 kV+ 최근접 거리를 계산해 시뮬레이션과 연동
+  - `data/kr_transport.json` — 간선 철도(`railway=rail` usage=main/branch, 고속철 구분)와 고속도로(`highway=motorway`) 실측 선형. TRANSPORT(도로)·RAIL/AIR(철도) 컨텍스트 레이어에 표시
+  - 후보지 반경 50 km의 매핑 발전용량·발전소 수·345 kV+ 최근접 거리를 계산해 시뮬레이션과 연동. 임의 지점 채점의 도로·철도 접근성도 실측 선형 기준
 - Leaflet + OpenStreetMap 배경 지도 및 전압급별 전력망·발전원·후보지·시설·수자원 레이어
 - 당진·나주·세종·이천·울산 후보지의 전력망, 수전 여유, 수자원, 통신, 재해·기후, 토지·인허가 요인 비교
 - 시뮬레이션: IT load / PUE / N+0·N+1·N+2 / 평균 부하율 / 냉각 방식(WUE)

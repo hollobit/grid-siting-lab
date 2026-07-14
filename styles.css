@@ -73,6 +73,8 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 .line-dot.cyan, .legend-line.cyan { background: var(--cyan); }
 .line-dot.pink, .legend-line.pink { background: var(--pink); }
 .line-dot.purple, .legend-line.purple { background: var(--purple); }
+.legend-line.rail { background: #eef3f5; }
+.legend-line.road { background: #f2c06e; }
 .metric-note { padding-left: 28px; background: linear-gradient(90deg, rgba(242,163,91,.04), transparent); }
 .metric-note p { max-width: 230px; margin: 12px 0 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .text-button { padding: 0; border: 0; background: none; color: var(--orange); font: 10px var(--mono); }

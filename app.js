@@ -405,6 +405,13 @@ async function loadGridData() {
     if (!linesRes.ok || !plantsRes.ok) throw new Error("grid snapshot missing");
     const [lines, plants] = await Promise.all([linesRes.json(), plantsRes.json()]);
     gridData = { lines, plants };
+    // 교통 스냅샷은 선택적: 없어도 전력망 기능은 유지하고 프록시 선형으로 degrade
+    try {
+      const transportRes = await fetch("data/kr_transport.json");
+      if (transportRes.ok) gridData.transport = await transportRes.json();
+    } catch (error) {
+      console.warn("Transport snapshot unavailable; keeping schematic corridors.", error);
+    }
     return true;
   } catch (error) {
     console.warn("Static grid snapshot unavailable; falling back to schematic lines.", error);
@@ -474,6 +481,15 @@ function nearestLineKm(coords, lines) {
   return best;
 }
 
+function nearestFlatLineKm(coords, latlngGroups) {
+  let best = Infinity;
+  latlngGroups.forEach((group) => group.forEach((point) => {
+    const distance = approxKm(coords, point);
+    if (distance < best) best = distance;
+  }));
+  return best;
+}
+
 function buildCustomSite(lat, lng) {
   const coords = [lat, lng];
   const reality = computeSiteReality(coords);
@@ -483,8 +499,13 @@ function buildCustomSite(lat, lng) {
   const satellite = nearestPoint(coords, contextData.satellite);
   const waterAsset = nearestPoint(coords, waterAssets);
   const telecomKm = nearestLineKm(coords, contextData.telecom);
-  const transportKm = nearestLineKm(coords, contextData.transport);
-  const railKm = nearestLineKm(coords, contextData.railAir.rail);
+  const hasTransport = gridData && gridData.transport;
+  const transportKm = hasTransport
+    ? nearestFlatLineKm(coords, gridData.transport.road)
+    : nearestLineKm(coords, contextData.transport);
+  const railKm = hasTransport
+    ? nearestFlatLineKm(coords, gridData.transport.rail.map((r) => r.c))
+    : nearestLineKm(coords, contextData.railAir.rail);
   const universityCount = contextData.university.filter((u) => approxKm(coords, [u[0], u[1]]) <= 60).length;
   const factors = {
     grid: reality ? scoreFromDistance(reality.nearestHv, 2.2) : 55,
@@ -687,11 +708,27 @@ function addContextLine(layerName, line, style = {}) {
   mapLayers.context.push(path);
 }
 
+function addContextMultiline(layerName, latlngGroups, style) {
+  const path = L.polyline(latlngGroups, { ...style, interactive: false }).addTo(map);
+  mapLayers[layerName].push(path);
+  mapLayers.context.push(path);
+}
+
 function drawContextLayer() {
   if (!map) return;
   contextData.urban.forEach(([lat, lng, label, radius]) => addContextPoint("urban", [lat, lng], label, { radius, color: "#f2a35b", fillColor: "#f2a35b", fillOpacity: .16 }));
-  contextData.transport.forEach((line) => addContextLine("transport", line, { color: "#f2c06e", weight: 2.2, dashArray: "9 8", opacity: .58 }));
-  contextData.railAir.rail.forEach((line) => addContextLine("railAir", line, { color: "#e8edf0", weight: 1.6, dashArray: "3 6", opacity: .72 }));
+  if (gridData && gridData.transport) {
+    // OSM 실측 고속도로·철도: 그룹 MultiPolyline로 묶어 렌더링 부하를 줄인다.
+    const transport = gridData.transport;
+    addContextMultiline("transport", transport.road, { color: "#f2c06e", weight: 1.3, opacity: .5 });
+    const conventional = transport.rail.filter((r) => !r.h).map((r) => r.c);
+    const highspeed = transport.rail.filter((r) => r.h).map((r) => r.c);
+    if (conventional.length) addContextMultiline("railAir", conventional, { color: "#b9c6cd", weight: .8, opacity: .42 });
+    if (highspeed.length) addContextMultiline("railAir", highspeed, { color: "#eef3f5", weight: 1.7, opacity: .85 });
+  } else {
+    contextData.transport.forEach((line) => addContextLine("transport", line, { color: "#f2c06e", weight: 2.2, dashArray: "9 8", opacity: .58 }));
+    contextData.railAir.rail.forEach((line) => addContextLine("railAir", line, { color: "#e8edf0", weight: 1.6, dashArray: "3 6", opacity: .72 }));
+  }
   contextData.railAir.airports.forEach(([lat, lng, label]) => addContextPoint("railAir", [lat, lng], label, { radius: 5, color: "#f0f2df", fillColor: "#f0f2df" }));
   contextData.telecom.forEach((line) => addContextLine("telecom", line, { color: "#52d1dc", weight: 2.3, dashArray: "2 7", opacity: .8 }));
   contextData.cloud.forEach(([lat, lng, label]) => addContextPoint("cloud", [lat, lng], label, { radius: 6, color: "#aa91ff", fillColor: "#aa91ff", fillOpacity: .28 }));

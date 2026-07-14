@@ -31,6 +31,12 @@
 - 최대 가능 IT capacity 추정 추가: 계통 수전 여유 프록시(헤드룸 모델 역산)와 냉각 용수 가용 프록시(WUE·부하율·PUE 반영) 중 병목값. 병목 요인(계통 수전/냉각 용수) 라벨과 현재 IT LOAD 초과 경고.
 - Playwright 검증: 평창권 임의 지점(발전 4,530 MW·13.0 km → CAPEX ▲3.8%·최대 ~57 MW), N+2·수랭 전환 시 CAPEX ▲20.5% 반응, 세종 25 km 이내 클릭은 큐레이션 후보로 스냅.
 
+### 철도·고속도로 실측 레이어
+
+- Overpass에서 간선 철도(`railway=rail` usage=main/branch, 13,414 way)와 고속도로(`highway=motorway`) 전체를 추출해 `data/kr_transport.json` 스냅샷 생성 (`etl/compact_transport_data.py`, 400 m 간격 단순화).
+- TRANSPORT(도로)·RAIL/AIR(철도) 컨텍스트 레이어의 프록시 축선을 실측 선형으로 교체: 고속도로(주황), 일반 간선철도(회백 얇게), 고속철(밝은 백색 굵게) 구분. 스냅샷 없으면 기존 프록시로 degrade.
+- 지도 범례에 RAIL/EXPWY 추가. 임의 지점 채점의 도로·철도 접근성 프록시도 실측 선형 최근접 거리로 전환.
+
 ### 배포
 
 - GitHub 저장소 생성 및 GitHub Pages 배포 (아래 README 참조).
