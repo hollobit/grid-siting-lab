@@ -226,6 +226,11 @@ const KW_PER_ACCELERATOR = 1.2; // 가속기 1장당 서버 환산 IT 전력(kW)
 const ACCELERATOR_IT_SHARE = .85; // IT load 중 가속기 비중 프록시
 const PFLOPS_PER_ACCELERATOR = 2; // FP8 dense 기준 프록시
 
+// 지역사회 영향 환산 프록시 (주민 체감 단위)
+const MWH_PER_HOUSEHOLD_YEAR = 3.6; // 가구당 연간 전력 사용량(MWh)
+const M3_PER_PERSON_YEAR = 67; // 1인 연간 생활용수(m³, 일 183L)
+const TCO2_PER_CAR_YEAR = 2; // 승용차 1대 연간 배출(tCO₂)
+
 const factorLabels = [
   ["계통 접근성", "grid"], ["수전 여유", "reserve"], ["초고속 백본", "telecom"],
   ["배후 도시", "urban"], ["도로·교통", "transport"], ["클라우드·기존 IDC", "cloud"],
@@ -1036,12 +1041,30 @@ function renderBrief(s) {
   if (s.load < s.maxIt * .6 && s.headroom > 20) actions.push(`수전 여유가 남습니다 — 단계 증설(현재 ${s.load} MW → 최대 ~${Math.round(s.maxIt)} MW) 마스터플랜으로 부지·변전 용량을 선확보하세요.`);
   if (site.id === "custom") actions.push("토지 용도지역·재해이력·인허가 조건 현장조사로 미산정 요인을 보완한 뒤 정식 후보로 승격하세요.");
 
+  // ---- 지역사회 영향 (최대 용량 가동 가정) ----
+  const community = [];
+  const redundancyFactorValue = [1.1, 1.25, 1.42][s.redundancy];
+  const maxIntake = s.maxIt * redundancyFactorValue;
+  const maxEnergy = Math.round(s.maxIt * s.utilization * s.pue * 8.76); // GWh/yr
+  const maxWater = Math.round(maxEnergy * s.cooling.wue * 1000); // m³/yr
+  const maxCarbon = Math.round(maxEnergy * s.env.carbonIntensity * 1000); // t/yr
+  const households = Math.round((maxEnergy * 1000) / MWH_PER_HOUSEHOLD_YEAR);
+  const persons = Math.round(maxWater / M3_PER_PERSON_YEAR);
+  const cars = Math.round(maxCarbon / TCO2_PER_CAR_YEAR);
+  const gridShare = reality && reality.mw50 ? (maxIntake / reality.mw50) * 100 : null;
+  const waterShare = (maxWater / WATER_AVAIL_M3[s.env.waterStress]) * 100;
+  community.push(`<b>전력수급</b> — 최대 용량(IT ~${Math.round(s.maxIt)} MW · 수전 ${maxIntake.toFixed(0)} MW) 가동 시 연간 ${maxEnergy.toLocaleString()} GWh를 소비합니다. 약 <b>${households.toLocaleString()}가구</b>의 연간 사용량과 같고${gridShare ? `, 반경 50 km 매핑 발전량의 ${gridShare.toFixed(1)}%를 점유합니다` : ""}. ${gridShare && gridShare >= 3 ? "피크 시 지역 계통 혼잡과 신규 산업·주거 수요와의 경합이 생길 수 있어, 계통 보강 없이는 지역 전력수급 안정성에 부담이 됩니다." : "매핑 발전량 대비 점유율은 낮지만, 실제 여유는 한전 계통검토로 확인해야 합니다."}`);
+  community.push(`<b>물공급</b> — 냉각용수 연 ${maxWater.toLocaleString()} m³는 주민 약 <b>${persons.toLocaleString()}명</b>의 생활용수와 같으며, 지역 가용 프록시의 ${Math.min(100, waterShare).toFixed(0)}% 수준입니다. ${s.env.waterStress !== "LOW" || waterShare >= 50 ? "가뭄기에 생활·농업용수 배분 경합, 취수원 수위 저하와 하류 유량 감소 민원이 발생할 수 있습니다." : "취수원 여유가 있으나 가뭄 시나리오의 우선순위 협약은 사전에 필요합니다."}`);
+  community.push(`<b>환경</b> — 연간 배출 프록시 ${maxCarbon.toLocaleString()} tCO₂(승용차 약 ${cars.toLocaleString()}대 분). ${s.cooling.wue >= 1.8 ? "냉각탑 백연·소음과 온배수 방류 시 하천 수온 상승이 쟁점이 될 수 있습니다." : s.cooling.wue <= .1 ? "대형 공랭 설비의 소음과 배열(열섬) 영향이 인접 주거지 쟁점이 될 수 있습니다." : "냉각탑 백연·소음과 배열 영향은 배치 설계에 따라 달라집니다."} 비상 디젤 발전기 시험가동 시 대기질, 송전선로 신설 경과지의 경관·전자파 우려도 주민 수용성 항목입니다.`);
+  community.push(`<b>완화 방안</b> — 폐열의 지역난방·온실 재이용, 하수 재이용수(중수) 냉각 전환, 저소음 설비·차폐 설계, 상생요금·지방세수·상시 고용(운영인력 프록시 ${Math.max(30, Math.round(s.maxIt * 1.2)).toLocaleString()}명)과 주민설명회를 통한 이익공유가 표준 완화 패키지입니다.`);
+
   const list = (items) => `<ul>${items.slice(0, 4).map((item) => `<li>${item}</li>`).join("")}</ul>`;
   wrap.innerHTML = `
     <div class="brief-block"><h3 class="brief-title strength">장점</h3>${list(strengths)}</div>
     <div class="brief-block"><h3 class="brief-title risk">단점 · 리스크</h3>${list(risks)}</div>
     <div class="brief-block brief-compute"><h3 class="brief-title compute">기대 컴퓨트 용량</h3><p>${computeText}</p></div>
     <div class="brief-block"><h3 class="brief-title action">개선 방향</h3>${list(actions)}</div>
+    <div class="brief-block brief-community"><h3 class="brief-title community">지역사회 영향 · 최대 용량(~${Math.round(s.maxIt)} MW) 가동 가정</h3>${list(community)}</div>
   `;
   $("#brief-site-name").textContent = site.name;
 }
