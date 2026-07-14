@@ -212,6 +212,15 @@ const coolingProfiles = {
 };
 const POWER_COST_KRW_PER_KWH = 160; // 산업용 평균 요금 프록시
 
+// CAPEX 프록시(억원): 공개 벤치마크 기반 IT MW당 구축비 + 계통 인입비. 탐색용 개산이며 실제 견적을 대체하지 않는다.
+const CAPEX_PER_IT_MW = 120; // 억원/MW · 하이퍼스케일급 구축비 프록시
+const CAPEX_GRID_PER_KM = 25; // 억원/km · 345 kV급 인입 선로 프록시
+const CAPEX_SUBSTATION_PER_MW = 2; // 억원/MW · 수전 변전설비 프록시
+const redundancyCapexFactor = [.92, 1, 1.12]; // N / N+1 / N+2
+const coolingCapexFactor = { air: 1, hybrid: 1.04, water: 1.09 };
+// 냉각수 가용량 프록시(m³/년): 취수원 스트레스 기준 탐색용 값
+const WATER_AVAIL_M3 = { LOW: 3000000, MED: 1200000 };
+
 const factorLabels = [
   ["계통 접근성", "grid"], ["수전 여유", "reserve"], ["초고속 백본", "telecom"],
   ["배후 도시", "urban"], ["도로·교통", "transport"], ["클라우드·기존 IDC", "cloud"],
@@ -326,7 +335,7 @@ function renderSelected(site) {
   $("#selected-talent-context").textContent = site.factors.talentContext;
   $("#context-site-name").textContent = site.name;
   $("#method-score").textContent = site.score;
-  const env = envProfiles[site.id];
+  const env = envFor(site);
   if (env && $("#selected-water-source")) {
     $("#selected-water-source").textContent = env.waterSource;
     $("#env-note").textContent = `${env.envNote} (재생에너지 비중 프록시 ${env.renewableShare}%)`;
@@ -410,33 +419,144 @@ function approxKm(a, b) {
   return Math.sqrt(dLat * dLat + dLng * dLng);
 }
 
+function computeSiteReality(coords) {
+  if (!gridData) return null;
+  let nearestHv = Infinity;
+  let nearest765 = Infinity;
+  let hvLines50 = 0;
+  gridData.lines.lines.forEach((line) => {
+    if (line.v < 345) return;
+    let lineMin = Infinity;
+    line.c.forEach((point) => {
+      const distance = approxKm(coords, point);
+      if (distance < lineMin) lineMin = distance;
+    });
+    if (lineMin < nearestHv) nearestHv = lineMin;
+    if (line.v >= 765 && lineMin < nearest765) nearest765 = lineMin;
+    if (lineMin <= 50) hvLines50 += 1;
+  });
+  let mw50 = 0;
+  let plants50 = 0;
+  gridData.plants.plants.forEach(([lat, lng, mw]) => {
+    if (approxKm(coords, [lat, lng]) <= 50) {
+      plants50 += 1;
+      if (mw) mw50 += mw;
+    }
+  });
+  return { nearestHv, nearest765, hvLines50, mw50: Math.round(mw50), plants50 };
+}
+
 function computeGridReality() {
   if (!gridData) return;
   candidates.forEach((site) => {
-    let nearestHv = Infinity;
-    let hvLines50 = 0;
-    gridData.lines.lines.forEach((line) => {
-      if (line.v < 345) return;
-      let lineMin = Infinity;
-      line.c.forEach((point) => {
-        const distance = approxKm(site.coords, point);
-        if (distance < lineMin) lineMin = distance;
-      });
-      if (lineMin < nearestHv) nearestHv = lineMin;
-      if (lineMin <= 50) hvLines50 += 1;
-    });
-    let mw50 = 0;
-    let plants50 = 0;
-    gridData.plants.plants.forEach(([lat, lng, mw]) => {
-      if (approxKm(site.coords, [lat, lng]) <= 50) {
-        plants50 += 1;
-        if (mw) mw50 += mw;
-      }
-    });
-    site.gridReality = { nearestHv, hvLines50, mw50: Math.round(mw50), plants50 };
-    site.distance = `${nearestHv.toFixed(1)} km`;
+    site.gridReality = computeSiteReality(site.coords);
+    site.distance = `${site.gridReality.nearestHv.toFixed(1)} km`;
   });
 }
+
+// ---- 사용자 지정 지점 분석: 지도 임의 위치를 정적 레이어·OSM 스냅샷 기반 프록시로 평가 ----
+const scoreFromDistance = (distanceKm, decayPerKm) => Math.round(Math.max(20, Math.min(95, 95 - distanceKm * decayPerKm)));
+const clampScore = (value, min = 5, max = 95) => Math.round(Math.max(min, Math.min(max, value)));
+
+function nearestPoint(coords, points) {
+  return points.reduce((best, point) => {
+    const distance = approxKm(coords, [point[0], point[1]]);
+    return distance < best.distance ? { distance, label: point[2] } : best;
+  }, { distance: Infinity, label: null });
+}
+
+function nearestLineKm(coords, lines) {
+  let best = Infinity;
+  lines.forEach((line) => line.coords.forEach((point) => {
+    const distance = approxKm(coords, point);
+    if (distance < best) best = distance;
+  }));
+  return best;
+}
+
+function buildCustomSite(lat, lng) {
+  const coords = [lat, lng];
+  const reality = computeSiteReality(coords);
+  const city = nearestPoint(coords, contextData.urban);
+  const cloudNear = nearestPoint(coords, contextData.cloud);
+  const airport = nearestPoint(coords, contextData.railAir.airports);
+  const satellite = nearestPoint(coords, contextData.satellite);
+  const waterAsset = nearestPoint(coords, waterAssets);
+  const telecomKm = nearestLineKm(coords, contextData.telecom);
+  const transportKm = nearestLineKm(coords, contextData.transport);
+  const railKm = nearestLineKm(coords, contextData.railAir.rail);
+  const universityCount = contextData.university.filter((u) => approxKm(coords, [u[0], u[1]]) <= 60).length;
+  const factors = {
+    grid: reality ? scoreFromDistance(reality.nearestHv, 2.2) : 55,
+    reserve: reality ? clampScore(30 + reality.mw50 / 400, 25, 92) : 55,
+    telecom: scoreFromDistance(telecomKm, 1.4),
+    urban: scoreFromDistance(city.distance, 1.1),
+    transport: scoreFromDistance(Math.min(transportKm, railKm), 1.6),
+    cloud: scoreFromDistance(cloudNear.distance, .9),
+    university: clampScore(40 + universityCount * 12, 30, 92),
+    railAir: scoreFromDistance(Math.min(railKm, airport.distance), 1.2),
+    satellite: scoreFromDistance(satellite.distance, .5),
+    water: scoreFromDistance(waterAsset.distance, 1.2),
+    resilience: 60, // 재해·회복력은 임의 지점에서 미산정 → 중립 프록시
+    land: 60, // 토지·인허가도 미산정 → 중립 프록시
+    cityContext: city.label ? `${city.label} · ${city.distance.toFixed(0)} km` : "배후 도시 정보 없음",
+    networkContext: `백본 프록시 ${telecomKm.toFixed(0)} km · IDC권 ${cloudNear.distance.toFixed(0)} km`,
+    talentContext: `반경 60 km 내 ${universityCount}개 (표본)`,
+  };
+  const gridClass = !reality ? "미확인"
+    : reality.nearest765 <= 20 ? "345 / 765 kV"
+      : reality.nearestHv <= 30 ? "345 kV" : "154 kV권";
+  const seoulKm = approxKm(coords, [37.5665, 126.978]);
+  const site = {
+    id: "custom",
+    name: city.distance <= 25 ? `${(city.label || "").replace(" 배후 도시권", "")} 인근` : "사용자 지정 지점",
+    region: `${lat.toFixed(3)}, ${lng.toFixed(3)}`,
+    coords,
+    distance: reality ? `${reality.nearestHv.toFixed(1)} km` : "미확인",
+    grid: gridClass,
+    water: factors.water >= 75 ? "LOW" : "MED",
+    latency: `${Math.round(5 + seoulKm * .045)} ms`,
+    reason: "map-selected point",
+    factors,
+    headroom: reality ? clampScore(20 + reality.mw50 / 600 - reality.nearestHv, 5, 90) : 40,
+    gridReality: reality,
+    env: {
+      waterSource: waterAsset.label ? `${waterAsset.label.split(" · ")[0]} (${waterAsset.distance.toFixed(0)} km)` : "취수원 프록시 없음",
+      waterStress: factors.water >= 75 ? "LOW" : "MED",
+      carbonIntensity: .44,
+      renewableShare: 10,
+      envNote: "사용자 지정 지점 · 탄소집약도는 전국 평균 프록시, 재해·토지 요인은 미산정 중립값입니다.",
+    },
+  };
+  site.score = getModelScore(site);
+  site.status = site.score >= 82 ? "EXCELLENT FIT" : site.score >= 70 ? "STRONG FIT" : "WATCH LIST";
+  site.summary = reality
+    ? `지도에서 선택한 지점입니다. 반경 50 km 매핑 발전 ${reality.mw50.toLocaleString()} MW, 345 kV+ 회선까지 ${reality.nearestHv.toFixed(1)} km — OSM 실측과 거리 프록시로 계산한 탐색용 점수입니다.`
+    : "지도에서 선택한 지점입니다. 정적 레이어 거리 프록시로 계산한 탐색용 점수입니다.";
+  return site;
+}
+
+let customMarker = null;
+let lastCustomSite = null;
+
+function selectCustomLocation(lat, lng) {
+  const site = buildCustomSite(lat, lng);
+  lastCustomSite = site;
+  if (map) {
+    if (!customMarker) {
+      customMarker = L.circleMarker(site.coords, { radius: 8, color: "#f2a35b", weight: 2.4, fillColor: "#0e1820", fillOpacity: .95, dashArray: "3 3" })
+        .bindTooltip("", { direction: "top", className: "dark-tooltip" })
+        .on("click", () => { if (lastCustomSite) renderSelected(lastCustomSite); })
+        .addTo(map);
+    }
+    customMarker.setLatLng(site.coords);
+    customMarker.setTooltipContent(`${site.name} · ${site.score}/100 · 탐색용 프록시`);
+  }
+  renderSelected(site);
+  showToast(`${site.name} 분석 · 반경 50 km OSM 실측 + 거리 프록시`);
+}
+
+const envFor = (site) => site.env || envProfiles[site.id];
 
 function createLeafletMap() {
   if (!window.L) return false;
@@ -458,10 +578,13 @@ function createLeafletMap() {
         const distance = map.distance(event.latlng, site.coords);
         return distance < best.distance ? { site, distance } : best;
       }, { site: null, distance: Infinity });
-      if (closest.distance < 75000) {
+      if (closest.distance < 25000) {
         renderSelected(closest.site);
         showToast(`${closest.site.name} 후보를 선택했습니다`);
+        return;
       }
+      // 후보지에서 떨어진 도시·임의 지점은 사용자 지정 지점으로 즉석 분석한다.
+      selectCustomLocation(event.latlng.lat, event.latlng.lng);
     });
     return true;
   } catch (error) {
@@ -493,7 +616,10 @@ function drawPowerLayer() {
     [37.28, 127.43, "이천 계통 허브"], [35.54, 129.31, "울산 계통 허브"], [37.06, 126.42, "서해 EHV"],
   ];
   substations.forEach(([lat, lng, label]) => {
-    const marker = L.circleMarker([lat, lng], { radius: 4, color: "#d8f1f1", weight: 1.5, fillColor: "#20373d", fillOpacity: 1 }).bindTooltip(label, { direction: "top", className: "dark-tooltip" }).addTo(map);
+    const marker = L.circleMarker([lat, lng], { radius: 4, color: "#d8f1f1", weight: 1.5, fillColor: "#20373d", fillOpacity: 1 })
+      .bindTooltip(label, { direction: "top", className: "dark-tooltip" })
+      .on("click", () => selectCustomLocation(lat, lng))
+      .addTo(map);
     mapLayers.power.push(marker);
   });
 }
@@ -506,6 +632,7 @@ function drawGenerationLayer() {
       const radius = mw ? Math.max(2, Math.min(11, Math.sqrt(mw) / 4)) : 1.6;
       const marker = L.circleMarker([lat, lng], { radius, color: style.color, weight: .8, opacity: .5, fillColor: style.color, fillOpacity: .3 })
         .bindTooltip(`${name || "발전소"} · ${mw ? `${mw.toLocaleString()} MW` : "용량 미표기"} · ${style.label}`, { direction: "top", className: "dark-tooltip" })
+        .on("click", () => selectCustomLocation(lat, lng)) // 마커가 지도 클릭을 흡수하므로 동일 위치 분석으로 연결
         .addTo(map);
       mapLayers.plants.push(marker);
     });
@@ -605,7 +732,7 @@ function drawFacilityLayer() {
     }).bindTooltip(
       `${facility.name} · ${meta.label} · ${operatorMeta[facility.operator].label}<br>${capacity} · CONF ${facility.confidence} · ${facility.source}`,
       { direction: "top", className: "dark-tooltip" },
-    );
+    ).on("click", () => selectCustomLocation(facility.coords[0], facility.coords[1]));
     facilityMarkers.push({ marker, facility });
   });
   // Facilities are opt-in from the FACILITIES toolbar button.
@@ -730,7 +857,7 @@ function calculateScenario(showMessage = false) {
   const redundancy = Number($("#redundancy-range").value);
   const utilization = Number($("#util-range").value) / 100;
   const redundancyFactor = [1.1, 1.25, 1.42][redundancy];
-  const env = envProfiles[selected.id];
+  const env = envFor(selected);
   const cooling = coolingProfiles[coolingMode];
   const annualEnergy = Math.round(load * utilization * pue * 8760 / 1000); // GWh/yr
   const intake = load * redundancyFactor;
@@ -765,6 +892,30 @@ function calculateScenario(showMessage = false) {
     const share = reality.mw50 ? (intake / reality.mw50) * 100 : null;
     $("#reality-share").textContent = share ? `${share.toFixed(1)}%` : "—";
   }
+  // ---- CAPEX 프록시와 표준구성(N+1·하이브리드·PUE 1.25·인입 5 km) 대비 증감 ----
+  const hvKm = selected.gridReality ? selected.gridReality.nearestHv : (parseFloat(selected.distance) || 10);
+  const pueCapexFactor = Math.max(.88, Math.min(1.12, 1 + (1.25 - pue) * .6));
+  const gridConnectCost = hvKm * CAPEX_GRID_PER_KM + load * CAPEX_SUBSTATION_PER_MW;
+  const capex = Math.round(load * CAPEX_PER_IT_MW * redundancyCapexFactor[redundancy] * coolingCapexFactor[coolingMode] * pueCapexFactor + gridConnectCost);
+  const capexBaseline = Math.round(load * CAPEX_PER_IT_MW * 1 * coolingCapexFactor.hybrid * 1 + 5 * CAPEX_GRID_PER_KM + load * CAPEX_SUBSTATION_PER_MW);
+  const capexDelta = ((capex - capexBaseline) / capexBaseline) * 100;
+  $("#capex-output").textContent = capex.toLocaleString();
+  $("#capex-grid").textContent = `계통 인입 ${Math.round(gridConnectCost).toLocaleString()}억`;
+  const capexBadge = $("#capex-badge");
+  capexBadge.textContent = Math.abs(capexDelta) < .5 ? "표준구성 수준" : `${capexDelta > 0 ? "▲" : "▼"} ${Math.abs(capexDelta).toFixed(1)}% vs 표준`;
+  capexBadge.classList.toggle("warn", capexDelta > 10);
+  // ---- 현재 조건에서의 최대 가능 IT capacity 추정 (계통 vs 냉각 용수 중 병목) ----
+  const gridMaxIt = (selected.headroom / .72 + 50) / redundancyFactor;
+  const waterMaxIt = WATER_AVAIL_M3[env.waterStress] / (utilization * pue * 8.76 * cooling.wue * 1000);
+  const maxIt = Math.max(5, Math.min(gridMaxIt, waterMaxIt));
+  const bindingConstraint = gridMaxIt <= waterMaxIt ? "계통 수전" : "냉각 용수";
+  $("#capacity-output").textContent = `~${Math.round(maxIt)}`;
+  const capacityBadge = $("#capacity-badge");
+  capacityBadge.textContent = `${bindingConstraint} 제약`;
+  capacityBadge.classList.toggle("warn", load > maxIt);
+  $("#capacity-note").textContent = load > maxIt
+    ? `현재 IT LOAD ${load} MW가 추정 한도를 초과합니다`
+    : `현재 조건(N${redundancy ? `+${redundancy}` : ""} · ${cooling.label} · 부하율 ${Math.round(utilization * 100)}%) 최대 추정`;
   [$("#load-range"), $("#pue-range"), $("#redundancy-range"), $("#util-range")].forEach(updateRangeFill);
   if (showMessage) {
     window.clearTimeout(simulationTimer);

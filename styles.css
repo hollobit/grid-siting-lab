@@ -321,6 +321,7 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
 .impact-badge.warn { color: var(--pink); border-color: rgba(243,109,145,.45); }
 .impact-foot { display: flex; justify-content: space-between; gap: 18px; margin-top: 13px; padding: 12px 0 18px; border-top: 1px dashed var(--line); color: var(--faint); font: 9px var(--mono); line-height: 1.6; }
 .impact-foot b { color: var(--muted); font-weight: 500; }
+.capex-strip { grid-template-columns: repeat(2, 1fr); margin-top: 14px; padding-top: 14px; }
 .reality-strip { margin: 0 -25px; padding: 14px 25px 16px; background: rgba(82,209,220,.045); border-top: 1px solid var(--line); }
 .reality-kicker { color: var(--cyan); font: 8px var(--mono); letter-spacing: .1em; }
 .reality-items { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 9px; color: var(--muted); font: 9px var(--mono); }

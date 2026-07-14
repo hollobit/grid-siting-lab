@@ -175,7 +175,7 @@
             </div>
           </aside>
 
-          <div class="map-footnote"><span class="crosshair">＋</span> 클릭하여 후보지 선택 · 드래그하여 지도 이동</div>
+          <div class="map-footnote"><span class="crosshair">＋</span> 후보지 클릭: 선택 · 그 외 도시/임의 지점 클릭: 즉석 분석</div>
         </section>
 
         <section class="analysis-grid" id="scenario-panel">
@@ -230,6 +230,10 @@
               <div class="impact-stat"><span>WATER USE <b id="impact-water-badge" class="impact-badge">LOW STRESS</b></span><strong id="water-output">315,000</strong><small>m³ / year · WUE 프록시</small></div>
               <div class="impact-stat"><span>CARBON</span><strong id="carbon-output">154,000</strong><small>tCO₂ / year · <b id="carbon-intensity-label">0.52</b> kg/kWh 프록시</small></div>
               <div class="impact-stat"><span>POWER COST</span><strong id="cost-output">560</strong><small>억원 / year · 160원/kWh 프록시</small></div>
+            </div>
+            <div class="impact-strip capex-strip">
+              <div class="impact-stat"><span>EST. CAPEX <b id="capex-badge" class="impact-badge">표준구성 수준</b></span><strong id="capex-output">—</strong><small>억원 · 구축 120억/MW + <b id="capex-grid">계통 인입 —</b> 프록시</small></div>
+              <div class="impact-stat"><span>MAX IT CAPACITY <b id="capacity-badge" class="impact-badge">계통 수전 제약</b></span><strong id="capacity-output">—</strong><small>MW · <span id="capacity-note">현재 조건 최대 추정</span></small></div>
             </div>
             <div class="impact-foot"><span>취수원 프록시 · <b id="selected-water-source">아산호·삽교호 광역용수</b></span><span id="env-note">지역 계통 탄소집약도·요금은 공개 통계 기반 프록시입니다.</span></div>
             <div class="reality-strip" id="reality-strip" hidden>
