@@ -1,0 +1,10 @@
+{
+  "name": "grid-siting-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "대한민국 AIDC 입지 적합도 시각화 및 전력 수요 시뮬레이터",
+  "scripts": {
+    "dev": "python3 -m http.server 4173",
+    "start": "python3 -m http.server 4173"
+  }
+}
