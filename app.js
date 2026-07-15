@@ -791,6 +791,100 @@ function rankRecommendations() {
   drawRecommendationLayer();
 }
 
+// ---- 초대형 신설 후보: GW급 발전 클러스터 인접지 + 직접연계(전용선로·PPA) 전제 ----
+const DIRECT_LINK_SHARE = .10; // 발전 클러스터 용량 중 전용 공급 가능 프록시 (협상 전제)
+let hyperNewbuild = null;
+let hyperMarkers = [];
+
+const improvementLabels = [
+  ["telecom", 65, "초고속 백본 전용선 신설"],
+  ["water", 70, "해수·재이용수 냉각 협약"],
+  ["land", 65, "산업단지 지정·토지 선매입"],
+  ["urban", 60, "운영인력 주거·통근 인프라"],
+  ["transport", 60, "진입도로·물류 접근 개선"],
+  ["university", 55, "원격 운영센터 분리 운용"],
+  ["resilience", 60, "내진·재해 설계 상향"],
+];
+
+function computeHyperNewbuild() {
+  if (!gridData) return;
+  // 앵커: 800 MW+ 태그 발전소, 클러스터 용량 = 반경 15 km 태그 합계
+  const anchors = gridData.plants.plants.filter((plant) => plant[2] && plant[2] >= 800);
+  const clusters = anchors.map(([lat, lng, mw, name]) => {
+    let clusterMw = 0;
+    gridData.plants.plants.forEach(([la, ln, m]) => {
+      if (m && approxKm([lat, lng], [la, ln]) <= 15) clusterMw += m;
+    });
+    return { coords: [lat, lng], anchor: name || "무명 발전단지", mw, clusterMw: Math.round(clusterMw) };
+  }).sort((a, b) => b.clusterMw - a.clusterMw);
+  const picks = [];
+  for (const cluster of clusters) {
+    if (picks.length >= 5) break;
+    if (cluster.clusterMw < 2500) continue; // 직접연계로 300 MW IT를 감당할 최소 클러스터 프록시
+    if (picks.some((pick) => approxKm(pick.coords, cluster.coords) < 40)) continue;
+    picks.push(cluster);
+  }
+  hyperNewbuild = picks.map((cluster, index) => {
+    const site = buildCustomSite(cluster.coords[0], cluster.coords[1]);
+    site.id = `hyper-${index}`;
+    site.name = `${cluster.anchor} 인접`;
+    const directMw = Math.round(cluster.clusterMw * DIRECT_LINK_SHARE);
+    const maxIt = Math.round(directMw / 1.25); // N+1 전제
+    const improvements = improvementLabels
+      .filter(([key, threshold]) => site.factors[key] < threshold)
+      .map(([, , label]) => label);
+    if (envFor(site).waterStress !== "LOW" && !improvements.includes("해수·재이용수 냉각 협약")) improvements.push("해수·재이용수 냉각 협약");
+    const improvedFactors = { ...site.factors };
+    ["telecom", "water", "land", "urban", "transport", "railAir", "university", "resilience"].forEach((key) => {
+      if (improvedFactors[key] < 72) improvedFactors[key] = 72; // 개선 목표치 프록시
+    });
+    return { site, cluster, directMw, maxIt, improvements, improvedFactors, feasible: maxIt >= 300 };
+  });
+  drawHyperNewbuildLayer();
+  renderHyperNewbuild();
+}
+
+function drawHyperNewbuildLayer() {
+  if (!map || !hyperNewbuild) return;
+  hyperMarkers.forEach((marker) => map.removeLayer(marker));
+  mapLayers.suitability = mapLayers.suitability.filter((layer) => !hyperMarkers.includes(layer));
+  hyperMarkers = [];
+  const control = $('[data-layer="suitability"]');
+  const visible = control ? control.classList.contains("active") : true;
+  hyperNewbuild.forEach((entry, rank) => {
+    const marker = L.circleMarker(entry.site.coords, {
+      radius: 16, color: "#f2a35b", weight: 2.4, fillColor: "#f2a35b", fillOpacity: .07, dashArray: "7 5",
+    }).bindTooltip(
+      `초대형 신설 후보 ${rank + 1} · ${entry.site.name}<br>클러스터 ${entry.cluster.clusterMw.toLocaleString()} MW · 직접연계 프록시 ${entry.directMw.toLocaleString()} MW → IT ~${entry.maxIt.toLocaleString()} MW${entry.feasible ? "" : " · 300 MW 미달"}<br>개선 과제 ${entry.improvements.length}건 (클릭: 상세 분석)`,
+      { direction: "top", className: "dark-tooltip" },
+    ).on("click", () => selectCustomLocation(entry.site.coords[0], entry.site.coords[1]));
+    if (visible) marker.addTo(map);
+    mapLayers.suitability.push(marker);
+    hyperMarkers.push(marker);
+  });
+}
+
+function renderHyperNewbuild() {
+  const wrap = $("#hyper-list");
+  if (!wrap || !hyperNewbuild) return;
+  $("#hyper-newbuild").hidden = false;
+  wrap.innerHTML = hyperNewbuild.map((entry, rank) => {
+    const currentScore = getModelScore(entry.site);
+    const improvedScore = getModelScore({ factors: entry.improvedFactors });
+    return `
+      <div class="hyper-row">
+        <span class="hyper-rank">${rank + 1}</span>
+        <span class="hyper-name"><b>${entry.site.name}</b><small>${entry.site.region} · 클러스터 ${entry.cluster.clusterMw.toLocaleString()} MW</small></span>
+        <span class="hyper-supply"><b>IT ~${entry.maxIt.toLocaleString()} MW</b><small>직접연계 ${entry.directMw.toLocaleString()} MW (${(DIRECT_LINK_SHARE * 100).toFixed(0)}% 프록시)</small></span>
+        <span class="hyper-score">${currentScore} <em>→</em> <b>${improvedScore}</b><small>현재 → 개선 시</small></span>
+        <span class="hyper-actions">${entry.improvements.length
+          ? entry.improvements.map((item) => `<i>${item}</i>`).join("")
+          : "<i>주요 취약 요인 없음</i>"}</span>
+      </div>
+    `;
+  }).join("");
+}
+
 function drawRecommendationLayer() {
   if (!map || !recommendedByClass) return;
   recommendationMarkers.forEach((marker) => map.removeLayer(marker));
@@ -1148,6 +1242,7 @@ function applyModelWeights(showMessage = false) {
   $("#method-score").textContent = adjustedScore;
   if (seedSites) rankRecommendations(); // 가중치 변경 시 전국 추천 재순위 (시드 채점은 재사용)
   renderClassFit();
+  renderHyperNewbuild(); // 신설 후보의 현재/개선 점수도 가중치 반영
   if (showMessage) showToast(`${selected.name} · 가중치 변경을 반영해 적합도를 ${adjustedScore}점으로 재계산했습니다`);
 }
 
@@ -1462,7 +1557,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 전국 시드 채점은 무거우므로 초기 렌더 후 백그라운드 배치로 수행
     window.setTimeout(() => computeClassRecommendations((seedCount) => {
       renderClassFit();
-      showToast(`규모별 전국 추천 계산 완료 · 시드 ${seedCount}곳 → 클래스별 TOP 5 지도 표시`);
+      computeHyperNewbuild();
+      showToast(`규모별 전국 추천 계산 완료 · 시드 ${seedCount}곳 + 초대형 신설 후보 ${hyperNewbuild ? hyperNewbuild.length : 0}곳`);
     }), 600);
   }
 });

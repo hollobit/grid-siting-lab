@@ -356,6 +356,24 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
 .scale-reco { margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--line); color: var(--muted); font: 9px var(--mono); line-height: 1.6; }
 .scale-reco b { color: var(--orange); font-weight: 500; }
 
+.hyper-newbuild { margin-top: 18px; padding: 16px 18px; border: 1px dashed rgba(242,163,91,.4); background: rgba(242,163,91,.04); }
+.hyper-head { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; }
+.hyper-head h3 { margin: 0; color: var(--orange); font: 10px var(--mono); font-weight: 500; letter-spacing: .1em; }
+.hyper-note-inline { color: var(--faint); font: 8px var(--mono); }
+.hyper-desc { margin: 10px 0 4px; color: var(--muted); font-size: 10.5px; line-height: 1.7; max-width: 860px; }
+.hyper-desc b { color: #c9d8d8; }
+.hyper-list { margin-top: 10px; border-top: 1px solid var(--line); }
+.hyper-row { display: grid; grid-template-columns: 22px 1.3fr 1fr .9fr 1.8fr; gap: 14px; align-items: center; padding: 11px 2px; border-bottom: 1px solid var(--line); }
+.hyper-rank { color: var(--orange); font: 12px var(--mono); }
+.hyper-name b { display: block; font-size: 12px; font-weight: 600; }
+.hyper-name small, .hyper-supply small, .hyper-score small { display: block; margin-top: 3px; color: var(--faint); font: 8px var(--mono); }
+.hyper-supply b { color: var(--ink); font: 11px var(--mono); font-weight: 500; }
+.hyper-score { color: var(--muted); font: 13px var(--mono); }
+.hyper-score em { color: var(--faint); font-style: normal; padding: 0 2px; }
+.hyper-score b { color: var(--green); font-weight: 600; }
+.hyper-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.hyper-actions i { padding: 3px 7px; border: 1px solid rgba(242,163,91,.3); color: #d9b088; font: 8px var(--mono); font-style: normal; letter-spacing: .02em; }
+
 #report-view { display: none; }
 
 .brief-section { margin-top: 16px; padding: 25px; }
@@ -496,6 +514,9 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
   .brief-section { padding: 18px 16px; }
   .scale-section { padding: 18px 16px; }
   .scale-grid { grid-template-columns: 1fr; }
+  .hyper-row { grid-template-columns: 22px 1fr 1fr; }
+  .hyper-row .hyper-score { grid-column: 2 / -1; }
+  .hyper-row .hyper-actions { grid-column: 2 / -1; }
   .scale-card { border-right: 0; }
   .scale-card:nth-child(n+2) { border-top: 1px solid var(--line); }
   .brief-grid { grid-template-columns: 1fr; }

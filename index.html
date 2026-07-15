@@ -293,7 +293,15 @@
           </div>
           <p class="context-description">초대형(300 MW)부터 소형(10 MW)까지 규모 모델별로 선택 입지의 점수와, 공급 한도·민원 페널티 전제를 충족하는 추천 입지를 함께 계산합니다. 가중치(SCORING ASSUMPTIONS) 변경 시 즉시 재계산됩니다.</p>
           <div class="scale-grid" id="scale-grid"></div>
-          <div class="registry-note">규모별 점수 = 기본 적합도 × (0.45 + 0.55 × 공급충족률) − 민원 페널티. 공급 한도는 계통 수전 여유와 냉각 용수 가용 프록시 중 병목값이며, 민원 페널티는 토지·인허가 취약, 용수 스트레스, 주민 전력 경합(발전량 점유율), 대도시 인접을 규모 계수(초대형 ×1.4)로 증폭한 값입니다. 한전 접속여유 데이터 연동 시 공급 한도가 실데이터로 대체됩니다.</div>
+          <div class="hyper-newbuild" id="hyper-newbuild" hidden>
+            <div class="hyper-head">
+              <h3>초대형 신설 후보 · GW급 발전원 직접연계형</h3>
+              <span class="hyper-note-inline">지도 SUITABILITY 레이어에 주황 대형 링으로 표시</span>
+            </div>
+            <p class="hyper-desc">계통 여유 프록시로는 초대형(300 MW) 전제를 충족하는 기존 입지가 없습니다. 대안으로 울진(한울)·고리·한빛 등 <b>GW급 발전 클러스터 인접지</b>에 전용선로·직접 PPA(클러스터 용량의 10% 프록시)를 전제로 신설하는 경로를 별도 스크리닝합니다. 취약 요인은 개선 목표치(72) 달성 시의 잠재 점수와 개선 과제로 제시합니다.</p>
+            <div class="hyper-list" id="hyper-list"></div>
+          </div>
+          <div class="registry-note">규모별 점수 = 기본 적합도 × (0.45 + 0.55 × 공급충족률) − 민원 페널티. 공급 한도는 계통 수전 여유와 냉각 용수 가용 프록시 중 병목값이며, 민원 페널티는 토지·인허가 취약, 용수 스트레스, 주민 전력 경합(발전량 점유율), 대도시 인접을 규모 계수(초대형 ×1.4)로 증폭한 값입니다. 한전 접속여유 데이터 연동 시 공급 한도가 실데이터로 대체됩니다. 초대형 신설 후보의 직접연계 비율(10%)·개선 목표치(72)는 협상·투자 전제의 탐색용 프록시입니다.</div>
         </section>
 
         <section class="brief-section panel-card" id="simulation-brief">
