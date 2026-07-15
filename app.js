@@ -817,13 +817,14 @@ function computeHyperNewbuild() {
     });
     return { coords: [lat, lng], anchor: name || "무명 발전단지", mw, clusterMw: Math.round(clusterMw) };
   }).sort((a, b) => b.clusterMw - a.clusterMw);
-  const picks = [];
+  const hubs = [];
   for (const cluster of clusters) {
-    if (picks.length >= 5) break;
-    if (cluster.clusterMw < 2500) continue; // 직접연계로 300 MW IT를 감당할 최소 클러스터 프록시
-    if (picks.some((pick) => approxKm(pick.coords, cluster.coords) < 40)) continue;
-    picks.push(cluster);
+    if (hubs.length >= 9) break;
+    if (cluster.clusterMw < 1500) continue; // GW 전략 허브 최소 프록시
+    if (hubs.some((hub) => approxKm(hub.coords, cluster.coords) < 40)) continue;
+    hubs.push(cluster);
   }
+  const picks = hubs.filter((hub) => hub.clusterMw >= 2500).slice(0, 5); // 초대형(300 MW) 신설 표시용
   hyperNewbuild = picks.map((cluster, index) => {
     const site = buildCustomSite(cluster.coords[0], cluster.coords[1]);
     site.id = `hyper-${index}`;
@@ -842,6 +843,72 @@ function computeHyperNewbuild() {
   });
   drawHyperNewbuildLayer();
   renderHyperNewbuild();
+  computeGwStrategy(hubs);
+}
+
+// ---- GW 전략: 1 GW+ 최적 입지와 정부 로드맵(2029 8.4 GW → 2035 18.4 GW) 배분 ----
+const PHASE1_SHARE = .10; // 기존 클러스터 직접연계 프록시 (2029)
+const PHASE2_SHARE = .20; // 계통 보강·신규 전원 병행 프록시 (2035)
+const GW_TARGET_2029 = 8400; // MW (정부 1단계)
+const GW_TARGET_2035 = 18400; // MW (정부 최대 목표)
+let gwStrategy = null;
+
+function computeGwStrategy(hubs) {
+  gwStrategy = hubs.map((cluster) => {
+    const site = buildCustomSite(cluster.coords[0], cluster.coords[1]);
+    site.name = `${cluster.anchor} 인접`;
+    const it2029 = Math.round((cluster.clusterMw * PHASE1_SHARE) / 1.25);
+    const it2035 = Math.round((cluster.clusterMw * PHASE2_SHARE) / 1.25);
+    const tasks = improvementLabels
+      .filter(([key, threshold]) => site.factors[key] < threshold)
+      .map(([, , label]) => label);
+    return { site, cluster, it2029, it2035, tasks };
+  });
+  renderGwStrategy();
+}
+
+function renderGwStrategy() {
+  const wrap = $("#gw-strategy-body");
+  if (!wrap || !gwStrategy) return;
+  $("#gw-strategy").hidden = false;
+  const sum2029 = gwStrategy.reduce((sum, hub) => sum + hub.it2029, 0);
+  const sum2035 = gwStrategy.reduce((sum, hub) => sum + hub.it2035, 0);
+  const gap2029 = GW_TARGET_2029 - sum2029;
+  const gap2035 = GW_TARGET_2035 - sum2035;
+  // 1 GW+ 최적: 2035 프록시 기준 1 GW 이상 가능한 허브 중 기본 적합도 최고
+  const gwCapable = gwStrategy.filter((hub) => hub.it2035 >= 1000)
+    .sort((a, b) => getModelScore(b.site) - getModelScore(a.site));
+  const best = gwCapable[0] || gwStrategy.slice().sort((a, b) => b.it2035 - a.it2035)[0];
+  const bestScore = getModelScore(best.site);
+  const rows = gwStrategy.map((hub) => `
+    <tr>
+      <td><b>${hub.site.name}</b><br><small>${hub.cluster.clusterMw.toLocaleString()} MW 클러스터</small></td>
+      <td>${hub.it2029.toLocaleString()} MW</td>
+      <td>${hub.it2035.toLocaleString()} MW</td>
+      <td class="gw-tasks">${hub.tasks.length ? hub.tasks.slice(0, 3).join(" · ") : "주요 취약 없음"}</td>
+    </tr>
+  `).join("");
+  wrap.innerHTML = `
+    <div class="gw-best">
+      <span class="gw-best-kicker">1 GW+ 최적 추천</span>
+      <div class="gw-best-line"><b>${best.site.name}</b> — 적합도 ${bestScore} · 클러스터 ${best.cluster.clusterMw.toLocaleString()} MW · 2035 프록시 IT ~${best.it2035.toLocaleString()} MW</div>
+      <div class="gw-best-tasks">해결 과제: 765 kV/HVDC 전용 인입·계통영향평가 패스트트랙 ${best.tasks.length ? "· " + best.tasks.join(" · ") : ""} · 전용 신규 전원(SMR·해상풍력 PPA) 확보 · 단계 증설 마스터플랜</div>
+    </div>
+    <table class="gw-table">
+      <thead><tr><th>허브 (발전 클러스터)</th><th>2029 배분<br><small>직접연계 10%</small></th><th>2035 확장<br><small>보강+신규 전원 20%</small></th><th>핵심 과제</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td><b>합계 / 목표</b></td>
+        <td><b>${sum2029.toLocaleString()}</b> / ${GW_TARGET_2029.toLocaleString()} MW<br><small class="gw-gap">부족분 ${Math.max(0, gap2029).toLocaleString()} MW</small></td>
+        <td><b>${sum2035.toLocaleString()}</b> / ${GW_TARGET_2035.toLocaleString()} MW<br><small class="gw-gap">부족분 ${Math.max(0, gap2035).toLocaleString()} MW</small></td>
+        <td class="gw-tasks">부족분 충당: 신규 전용 전원(SMR·해상풍력·LNG 직결) · HVDC 동해안—수도권 · 호남 RE100 캠퍼스 · 한전 접속여유 실데이터 연동 후 재배분</td>
+      </tr></tfoot>
+    </table>
+    <div class="gw-roadmap">
+      <b>달성 경로 제안</b> — <em>1단계(~2029, 8.4 GW)</em>: 서해안 화력벨트(당진·보령·태안권)와 동남권 원전벨트(고리권)에 직접연계형 캠퍼스를 병행 착공하고, 수도권 서부(서인천권)는 저지연 서빙 전용으로 한정. 계통영향평가·인허가 패스트트랙과 지역 상생요금이 전제.
+      <em>2단계(~2035, 18.4 GW)</em>: 동해안(한울·신한울) HVDC 연계와 SMR·해상풍력 전용 전원으로 허브당 규모를 2배 확장, 호남 재생에너지 클러스터를 RE100 전용 존으로 추가. 냉각은 해수·재이용수 표준화로 담수 의존을 제한.
+    </div>
+  `;
 }
 
 function drawHyperNewbuildLayer() {
@@ -1243,6 +1310,7 @@ function applyModelWeights(showMessage = false) {
   if (seedSites) rankRecommendations(); // 가중치 변경 시 전국 추천 재순위 (시드 채점은 재사용)
   renderClassFit();
   renderHyperNewbuild(); // 신설 후보의 현재/개선 점수도 가중치 반영
+  renderGwStrategy(); // GW 전략의 1GW+ 최적 추천도 가중치 반영
   if (showMessage) showToast(`${selected.name} · 가중치 변경을 반영해 적합도를 ${adjustedScore}점으로 재계산했습니다`);
 }
 
