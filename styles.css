@@ -248,7 +248,7 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
 .context-tile small { color: var(--faint); font: 8px var(--mono); line-height: 1.35; }
 .context-tile strong { margin-top: auto; color: var(--ink); font: 18px var(--mono); letter-spacing: -.08em; }
 .context-tile > i { display: block; width: 100%; height: 3px; background: linear-gradient(90deg, var(--cyan) var(--tile-score), #2a3c42 var(--tile-score)); }
-.assumption-strip { display: grid; grid-template-columns: 1.5fr repeat(3, 1fr) auto; align-items: end; gap: 20px; padding: 17px 0 16px; border-bottom: 1px solid var(--line); }
+.assumption-strip { display: grid; grid-template-columns: 1.2fr repeat(5, 1fr) auto; align-items: end; gap: 16px; padding: 17px 0 16px; border-bottom: 1px solid var(--line); }
 .assumption-copy span { color: var(--orange); font: 8px var(--mono); letter-spacing: .09em; }
 .assumption-copy p { margin: 7px 0 0; color: var(--muted); font: 9px var(--mono); line-height: 1.45; }
 .assumption-control > span { display: flex; justify-content: space-between; color: var(--muted); font: 8px var(--mono); }
@@ -329,6 +329,29 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
 .reality-items { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 9px; color: var(--muted); font: 9px var(--mono); }
 .reality-items b { color: var(--ink); font-weight: 500; }
 
+.hazard-icon { color: var(--pink); font-size: 11px; line-height: 13px; }
+
+.scale-section { margin-top: 16px; padding: 25px; }
+.scale-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.scale-card { padding: 17px 16px 15px; border-right: 1px solid var(--line); min-width: 0; }
+.scale-card:last-child { border-right: 0; }
+.scale-head b { display: block; font-size: 13px; font-weight: 700; letter-spacing: -.02em; }
+.scale-head small { display: block; margin-top: 4px; color: var(--faint); font: 8px var(--mono); line-height: 1.5; }
+.scale-score { display: flex; align-items: baseline; gap: 8px; margin-top: 14px; }
+.scale-score span { color: var(--muted); font: 9px var(--mono); }
+.scale-score strong { font-size: 24px; font-weight: 600; letter-spacing: -.06em; }
+.scale-badge { margin-left: auto; padding: 3px 7px; border: 1px solid var(--line-strong); font: 7px var(--mono); font-style: normal; letter-spacing: .06em; white-space: nowrap; }
+.scale-badge.good { color: var(--green); border-color: rgba(122,214,162,.4); }
+.scale-badge.cond { color: var(--orange); border-color: rgba(242,163,91,.4); }
+.scale-badge.bad { color: var(--pink); border-color: rgba(243,109,145,.4); }
+.scale-bar { height: 3px; margin-top: 10px; background: #293840; }
+.scale-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--orange)); }
+.scale-meta { margin-top: 9px; color: var(--faint); font: 8px var(--mono); line-height: 1.6; }
+.scale-reco { margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--line); color: var(--muted); font: 9px var(--mono); line-height: 1.6; }
+.scale-reco b { color: var(--orange); font-weight: 500; }
+
+#report-view { display: none; }
+
 .brief-section { margin-top: 16px; padding: 25px; }
 .brief-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-top: 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .brief-block { padding: 17px 16px 15px; border-right: 1px solid var(--line); min-width: 0; }
@@ -380,8 +403,12 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
   .context-tile:nth-child(4) { border-right: 0; }
   .context-tile:nth-child(n+5) { border-top: 1px solid var(--line); }
   .context-tile:nth-child(5) { border-right: 1px solid var(--line); }
-  .assumption-strip { grid-template-columns: 1.4fr repeat(3, 1fr); }
+  .assumption-strip { grid-template-columns: repeat(3, 1fr); }
+  .assumption-copy { grid-column: 1 / -1; }
   .assumption-strip .simulate-button { grid-column: 1 / -1; }
+  .scale-grid { grid-template-columns: 1fr 1fr; }
+  .scale-card:nth-child(2n) { border-right: 0; }
+  .scale-card:nth-child(n+3) { border-top: 1px solid var(--line); }
 }
 @media (max-width: 900px) {
   .topbar { height: auto; min-height: 78px; flex-wrap: wrap; padding: 17px 0 0; }
@@ -461,6 +488,10 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
   .impact-foot span { display: block; margin-top: 5px; }
   .registry-section { padding: 18px 16px; }
   .brief-section { padding: 18px 16px; }
+  .scale-section { padding: 18px 16px; }
+  .scale-grid { grid-template-columns: 1fr; }
+  .scale-card { border-right: 0; }
+  .scale-card:nth-child(n+2) { border-top: 1px solid var(--line); }
   .brief-grid { grid-template-columns: 1fr; }
   .brief-block { border-right: 0; }
   .brief-block:nth-child(n+2) { border-top: 1px solid var(--line); }
@@ -478,4 +509,21 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
+/* 후보지 비교 리포트: 인쇄(PDF 저장) 시에만 report-view를 노출 */
+@media print {
+  body.printing-report .app-shell, body.printing-report .toast, body.printing-report .modal { display: none !important; }
+  body.printing-report { background: #fff; color: #111; }
+  body.printing-report #report-view { display: block; padding: 8mm 4mm; font-family: var(--sans); }
+  #report-view h1 { font-size: 20px; letter-spacing: -.03em; margin: 0 0 6px; }
+  #report-view h2 { font-size: 13px; margin: 18px 0 8px; }
+  #report-view .report-meta { color: #555; font: 9px var(--mono); margin: 0 0 4px; }
+  #report-view table { width: 100%; border-collapse: collapse; font-size: 9.5px; }
+  #report-view th, #report-view td { border: 1px solid #bbb; padding: 5px 6px; text-align: left; vertical-align: top; }
+  #report-view th { background: #f0f2f4; font-weight: 700; }
+  #report-view td small, #report-view th small { color: #666; font-size: 8px; }
+  #report-view td.ok { background: #eef8f0; }
+  #report-view td.no { background: #fdeef2; }
+  #report-view .report-note { margin-top: 14px; color: #555; font-size: 8.5px; line-height: 1.6; }
 }

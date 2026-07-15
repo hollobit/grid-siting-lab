@@ -124,6 +124,7 @@
               <button class="map-tool active" data-layer="plants"><span class="tool-icon plant-icon">◉</span> GENERATION</button>
               <button class="map-tool" data-layer="context"><span class="tool-icon context-icon">✦</span> CONTEXT</button>
               <button class="map-tool" data-layer="facilities"><span class="tool-icon dc-icon">▣</span> FACILITIES</button>
+              <button class="map-tool" data-layer="hazard"><span class="tool-icon hazard-icon">▲</span> HAZARD</button>
             </div>
             <div class="map-toolbar map-toolbar-right">
               <button class="map-icon-btn" id="zoom-in" aria-label="확대">+</button>
@@ -245,6 +246,7 @@
                 <span>발전소 <b id="reality-plants">—</b></span>
                 <span>345 kV+ 최근접 <b id="reality-hv">—</b></span>
                 <span>수요 / 주변 발전용량 <b id="reality-share">—</b></span>
+                <span>한전 접속여유 <b id="reality-kepco">미연동 · 스크리닝 프록시</b></span>
               </div>
             </div>
           </div>
@@ -266,12 +268,27 @@
                 <div><span><b>배후 도시</b><em>10%</em></span><i><u id="method-urban" style="width:78%"></u></i></div>
                 <div><span><b>도로·철도·공항</b><em>9%</em></span><i><u id="method-transport" style="width:91%"></u></i></div>
                 <div><span><b>클라우드·기존 IDC</b><em>8%</em></span><i><u id="method-cloud" style="width:64%"></u></i></div>
-                <div><span><b>대학·R&amp;D 인재</b><em>7%</em></span><i><u id="method-university" style="width:57%"></u></i></div>
-                <div><span><b>수자원·재해 회복력</b><em>7%</em></span><i><u id="method-resilience" style="width:82%"></u></i></div>
+                <div><span><b>대학·R&amp;D 인재</b><em>6%</em></span><i><u id="method-university" style="width:57%"></u></i></div>
+                <div><span><b>수자원·재해 회복력</b><em>6%</em></span><i><u id="method-resilience" style="width:82%"></u></i></div>
+                <div><span><b>정치적 고려</b><em>5%</em></span><i><u id="method-political" style="width:76%"></u></i></div>
+                <div><span><b>지역균형발전</b><em>5%</em></span><i><u id="method-balance" style="width:78%"></u></i></div>
               </div>
             </div>
             <div class="method-footer"><span class="tiny-check">✓</span> 공개 데이터 + 가중치 기반 스크리닝 <span>버전 0.5</span></div>
           </div>
+        </section>
+
+        <section class="scale-section panel-card" id="scale-fit">
+          <div class="context-header">
+            <div>
+              <p class="eyebrow">SCALE MODEL FIT · 04 CLASSES</p>
+              <h2>규모별 <em>AIDC 적합도</em></h2>
+            </div>
+            <div class="context-header-note"><span class="status-dot"></span> 전력·용수 충족 + 민원 최소 전제 · 표준구성(N+1 · 하이브리드) 기준</div>
+          </div>
+          <p class="context-description">초대형(300 MW)부터 소형(10 MW)까지 규모 모델별로 선택 입지의 점수와, 공급 한도·민원 페널티 전제를 충족하는 추천 입지를 함께 계산합니다. 가중치(SCORING ASSUMPTIONS) 변경 시 즉시 재계산됩니다.</p>
+          <div class="scale-grid" id="scale-grid"></div>
+          <div class="registry-note">규모별 점수 = 기본 적합도 × (0.45 + 0.55 × 공급충족률) − 민원 페널티. 공급 한도는 계통 수전 여유와 냉각 용수 가용 프록시 중 병목값이며, 민원 페널티는 토지·인허가 취약, 용수 스트레스, 주민 전력 경합(발전량 점유율), 대도시 인접을 규모 계수(초대형 ×1.4)로 증폭한 값입니다. 한전 접속여유 데이터 연동 시 공급 한도가 실데이터로 대체됩니다.</div>
         </section>
 
         <section class="brief-section panel-card" id="simulation-brief">
@@ -307,9 +324,11 @@
           </div>
           <div class="assumption-strip">
             <div class="assumption-copy"><span>SCORING ASSUMPTIONS</span><p>전력·생태계·회복력의 우선순위를 조정해 선택지의 순위를 다시 계산합니다.</p></div>
-            <label class="assumption-control"><span>POWER <b id="power-priority-value">65%</b></span><input id="power-priority" type="range" min="40" max="80" value="65" step="5" /></label>
-            <label class="assumption-control"><span>ECOSYSTEM <b id="ecosystem-priority-value">25%</b></span><input id="ecosystem-priority" type="range" min="10" max="45" value="25" step="5" /></label>
+            <label class="assumption-control"><span>POWER <b id="power-priority-value">55%</b></span><input id="power-priority" type="range" min="30" max="80" value="55" step="5" /></label>
+            <label class="assumption-control"><span>ECOSYSTEM <b id="ecosystem-priority-value">15%</b></span><input id="ecosystem-priority" type="range" min="5" max="45" value="15" step="5" /></label>
             <label class="assumption-control"><span>RESILIENCE <b id="resilience-priority-value">10%</b></span><input id="resilience-priority" type="range" min="5" max="30" value="10" step="5" /></label>
+            <label class="assumption-control"><span>POLITICAL <b id="political-priority-value">10%</b></span><input id="political-priority" type="range" min="0" max="25" value="10" step="5" /></label>
+            <label class="assumption-control"><span>BALANCE <b id="balance-priority-value">10%</b></span><input id="balance-priority" type="range" min="0" max="25" value="10" step="5" /></label>
             <button class="simulate-button" id="apply-model" type="button"><span class="play-icon">▶</span> APPLY MODEL</button>
           </div>
           <div class="context-footer"><span id="api-status">레이어를 선택하면 지도에서 해당 인프라 프록시를 강조합니다.</span><span class="context-source">OSM · Overpass API · 현장 검증 필요</span></div>
@@ -321,7 +340,7 @@
               <p class="eyebrow">SHORTLIST · 05 LOCATIONS</p>
               <h2>전력 인입 가능성이 높은 후보</h2>
             </div>
-            <div class="section-tools"><span><i class="legend-line pink"></i> 345 kV 이상 인접</span><button class="outline-button" id="compare-button">비교 모드 <span>↗</span></button></div>
+            <div class="section-tools"><span><i class="legend-line pink"></i> 345 kV 이상 인접</span><button class="outline-button" id="export-report">리포트 PDF <span>⎙</span></button><button class="outline-button" id="compare-button">비교 모드 <span>↗</span></button></div>
           </div>
           <div class="candidate-list" id="candidate-list"></div>
         </section>
@@ -371,6 +390,7 @@
     </div>
 
     <div class="toast" id="toast" role="status"></div>
+    <div id="report-view" aria-hidden="true"></div>
     <div class="modal" id="info-modal" aria-hidden="true">
       <div class="modal-backdrop" data-close-modal></div>
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">

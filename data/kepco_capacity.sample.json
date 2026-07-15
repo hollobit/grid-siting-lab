@@ -1,0 +1,17 @@
+{
+  "_doc": "한전 변전소 접속여유 연동 스키마 예시. 공공데이터포털(data.go.kr)의 한국전력공사 변전소 여유용량 API 또는 한전 ON 계통접속 사전검토 결과를 이 형식으로 정규화한 뒤 'kepco_capacity.json'으로 저장하면 앱이 자동 연동합니다. 연동 시 후보지 수전 여유(headroom)·최대 용량·규모별 적합도가 실데이터 기준으로 재계산되고, 시나리오 카드에 변전소명·여유용량·갱신일이 표시됩니다.",
+  "_schema": {
+    "substations[].name": "변전소명 (문자열)",
+    "substations[].lat / lng": "위경도 (WGS84)",
+    "substations[].voltageKv": "수전 전압급 (154/345/765)",
+    "substations[].availableMw": "접속 가능 여유용량 (MW)",
+    "substations[].updated": "데이터 기준일 (YYYY-MM-DD)",
+    "substations[].source": "출처 (API명 또는 검토문서 번호)"
+  },
+  "source": "SAMPLE — 실데이터 아님",
+  "updated": "2026-07-15",
+  "substations": [
+    { "name": "당진 변전소 (예시)", "lat": 36.95, "lng": 126.6, "voltageKv": 345, "availableMw": 180, "updated": "2026-07-01", "source": "SAMPLE" },
+    { "name": "나주 변전소 (예시)", "lat": 35.03, "lng": 126.72, "voltageKv": 345, "availableMw": 120, "updated": "2026-07-01", "source": "SAMPLE" }
+  ]
+}

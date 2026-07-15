@@ -90,12 +90,13 @@ const candidates = [
   },
 ];
 
+// political: 지자체 유치 의지·정책 정합성·규제 리스크 프록시 / balance: 국가 균형발전 기여(비수도권 가산) 프록시
 const contextProfiles = {
-  dangjin: { urban: 68, transport: 82, telecom: 72, cloud: 58, university: 64, railAir: 65, satellite: 91, water: 82, resilience: 89, land: 61, cityContext: "대전·세종 생활권", networkContext: "2개 이중 경로 · 1개 IDC권", talentContext: "반경 60 km 내 4개" },
-  naju: { urban: 74, transport: 76, telecom: 76, cloud: 62, university: 78, railAir: 70, satellite: 86, water: 74, resilience: 82, land: 88, cityContext: "광주 생활권 · 36 min", networkContext: "3개 백본 경로 · 1개 IDC권", talentContext: "반경 60 km 내 7개" },
-  sejong: { urban: 82, transport: 91, telecom: 82, cloud: 73, university: 78, railAir: 78, satellite: 88, water: 80, resilience: 84, land: 63, cityContext: "대전·청주 생활권", networkContext: "4개 이중 경로 · 2개 IDC권", talentContext: "반경 60 km 내 9개" },
-  icheon: { urban: 94, transport: 86, telecom: 94, cloud: 88, university: 82, railAir: 91, satellite: 76, water: 70, resilience: 73, land: 42, cityContext: "수도권 생활권 · 48 min", networkContext: "5개 백본 경로 · 6개 IDC권", talentContext: "반경 60 km 내 26개" },
-  ulsan: { urban: 77, transport: 84, telecom: 62, cloud: 58, university: 76, railAir: 83, satellite: 89, water: 68, resilience: 80, land: 73, cityContext: "울산·부산 생활권", networkContext: "3개 이중 경로 · 2개 IDC권", talentContext: "반경 60 km 내 8개" },
+  dangjin: { urban: 68, transport: 82, telecom: 72, cloud: 58, university: 64, railAir: 65, satellite: 91, water: 82, resilience: 89, land: 61, political: 76, balance: 78, cityContext: "대전·세종 생활권", networkContext: "2개 이중 경로 · 1개 IDC권", talentContext: "반경 60 km 내 4개" },
+  naju: { urban: 74, transport: 76, telecom: 76, cloud: 62, university: 78, railAir: 70, satellite: 86, water: 74, resilience: 82, land: 88, political: 86, balance: 92, cityContext: "광주 생활권 · 36 min", networkContext: "3개 백본 경로 · 1개 IDC권", talentContext: "반경 60 km 내 7개" },
+  sejong: { urban: 82, transport: 91, telecom: 82, cloud: 73, university: 78, railAir: 78, satellite: 88, water: 80, resilience: 84, land: 63, political: 81, balance: 74, cityContext: "대전·청주 생활권", networkContext: "4개 이중 경로 · 2개 IDC권", talentContext: "반경 60 km 내 9개" },
+  icheon: { urban: 94, transport: 86, telecom: 94, cloud: 88, university: 82, railAir: 91, satellite: 76, water: 70, resilience: 73, land: 42, political: 34, balance: 25, cityContext: "수도권 생활권 · 48 min", networkContext: "5개 백본 경로 · 6개 IDC권", talentContext: "반경 60 km 내 26개" },
+  ulsan: { urban: 77, transport: 84, telecom: 62, cloud: 58, university: 76, railAir: 83, satellite: 89, water: 68, resilience: 80, land: 73, political: 72, balance: 81, cityContext: "울산·부산 생활권", networkContext: "3개 이중 경로 · 2개 IDC권", talentContext: "반경 60 km 내 8개" },
 };
 candidates.forEach((site) => {
   site.factors = { ...site.factors, ...contextProfiles[site.id] };
@@ -235,12 +236,14 @@ const factorLabels = [
   ["계통 접근성", "grid"], ["수전 여유", "reserve"], ["초고속 백본", "telecom"],
   ["배후 도시", "urban"], ["도로·교통", "transport"], ["클라우드·기존 IDC", "cloud"],
   ["대학·R&D 인재", "university"], ["수자원", "water"], ["재해·위성 회복력", "resilience"], ["토지·인허가", "land"],
+  ["정치적 고려", "political"], ["지역균형발전", "balance"],
 ];
 
 let selected = candidates[0];
 let map;
 let gridData = null; // OSM/Overpass 정적 스냅샷 (data/kr_power_*.json)
-let mapLayers = { power: [], plants: [], suitability: [], context: [], urban: [], transport: [], telecom: [], cloud: [], university: [], railAir: [], satellite: [], water: [] };
+let mapLayers = { power: [], plants: [], suitability: [], context: [], urban: [], transport: [], telecom: [], cloud: [], university: [], railAir: [], satellite: [], water: [], hazard: [] };
+let kepcoData = null; // 한전 접속여유 데이터 (data/kepco_capacity.json, 선택적)
 let facilityMarkers = []; // { marker, facility } — lifecycle/operator 필터와 동기화
 let registryFilter = { lifecycle: "all", operator: "all" };
 let coolingMode = "hybrid";
@@ -350,7 +353,7 @@ function renderSelected(site) {
     $("#selected-water-source").textContent = env.waterSource;
     $("#env-note").textContent = `${env.envNote} (재생에너지 비중 프록시 ${env.renewableShare}%)`;
   }
-  ["grid", "reserve", "telecom", "urban", "transport", "cloud", "university", "resilience"].forEach((key) => {
+  ["grid", "reserve", "telecom", "urban", "transport", "cloud", "university", "resilience", "political", "balance"].forEach((key) => {
     const bar = $(`#method-${key}`);
     if (bar) bar.style.width = `${site.factors[key]}%`;
   });
@@ -422,6 +425,17 @@ async function loadGridData() {
     } catch (error) {
       console.warn("Transport snapshot unavailable; keeping schematic corridors.", error);
     }
+    // 한전 접속여유(선택적): data/kepco_capacity.json이 있으면 후보지 수전 여유를 실데이터로 교체
+    // 스키마는 data/kepco_capacity.sample.json 참조 (공공데이터포털 한전 변전소 여유용량 API 정규화 결과를 배치)
+    try {
+      const kepcoRes = await fetch("data/kepco_capacity.json");
+      if (kepcoRes.ok) {
+        kepcoData = await kepcoRes.json();
+        applyKepcoOverrides();
+      }
+    } catch (error) {
+      console.warn("KEPCO capacity file not present; using screening headroom proxy.", error);
+    }
     return true;
   } catch (error) {
     console.warn("Static grid snapshot unavailable; falling back to schematic lines.", error);
@@ -461,6 +475,23 @@ function computeSiteReality(coords) {
     }
   });
   return { nearestHv, nearest765, hvLines50, mw50: Math.round(mw50), plants50 };
+}
+
+// 한전 접속여유 데이터로 후보지 headroom을 교체: 반경 30 km 내 최근접 변전소의 여유용량 기준
+function applyKepcoOverrides() {
+  if (!kepcoData || !Array.isArray(kepcoData.substations)) return;
+  candidates.forEach((site) => {
+    let best = null;
+    kepcoData.substations.forEach((substation) => {
+      const distance = approxKm(site.coords, [substation.lat, substation.lng]);
+      if (distance <= 30 && (!best || substation.availableMw > best.availableMw)) best = { ...substation, distance };
+    });
+    if (best) {
+      site.kepco = best;
+      // 시나리오 headroom 모델 역산: 최대 수전 ≈ headroom/0.72 + 50 이 되도록 설정
+      site.headroom = Math.max(5, Math.round((best.availableMw - 50) * .72));
+    }
+  });
 }
 
 function computeGridReality() {
@@ -528,8 +559,10 @@ function buildCustomSite(lat, lng) {
     railAir: scoreFromDistance(Math.min(railKm, airport.distance), 1.2),
     satellite: scoreFromDistance(satellite.distance, .5),
     water: scoreFromDistance(waterAsset.distance, 1.2),
-    resilience: 60, // 재해·회복력은 임의 지점에서 미산정 → 중립 프록시
-    land: 60, // 토지·인허가도 미산정 → 중립 프록시
+    resilience: hazardResilienceScore(coords), // 재해 프록시존 근접도 기반
+    land: 60, // 토지·인허가는 미산정 → 중립 프록시
+    political: 55, // 정치적 고려는 임의 지점 미산정 → 중립보다 소폭 낮게
+    balance: approxKm(coords, [37.5665, 126.978]) >= 150 ? 88 : approxKm(coords, [37.5665, 126.978]) >= 60 ? 72 : 30, // 수도권 거리 기반 균형발전 프록시
     cityContext: city.label ? `${city.label} · ${city.distance.toFixed(0)} km` : "배후 도시 정보 없음",
     networkContext: `백본 프록시 ${telecomKm.toFixed(0)} km · IDC권 ${cloudNear.distance.toFixed(0)} km`,
     talentContext: `반경 60 km 내 ${universityCount}개 (표본)`,
@@ -589,6 +622,100 @@ function selectCustomLocation(lat, lng) {
 
 const envFor = (site) => site.env || envProfiles[site.id];
 
+// ---- 재해 프록시존: 공개 알려진 홍수 저지대·지진 다발권 (공공데이터 연동 전 탐색용) ----
+const hazardZones = {
+  flood: [
+    [37.62, 126.68, 18, "한강 하류 저지대 · 김포·고양권"],
+    [36.46, 126.98, 16, "금강 하류 저지대 · 공주·부여권"],
+    [35.0, 126.78, 12, "영산강 하류 저지대 · 나주 일부"],
+    [35.25, 128.85, 16, "낙동강 하류 저지대 · 김해·양산권"],
+    [36.85, 126.75, 12, "삽교천 유역 저지대 · 아산·당진 일부"],
+  ],
+  seismic: [
+    [35.84, 129.21, 28, "경주권 · 2016 M5.8 계기지진"],
+    [36.02, 129.36, 22, "포항권 · 2017 M5.4 계기지진"],
+    [35.4, 129.1, 30, "양산단층대 인접권"],
+  ],
+};
+
+// 재해존 근접도로 회복력 점수를 산정: 존 밖 82, 존 중심에 가까울수록 감점
+function hazardResilienceScore(coords) {
+  let score = 82;
+  const applyZones = (zones, maxPenalty) => zones.forEach(([lat, lng, radiusKm, ]) => {
+    const distance = approxKm(coords, [lat, lng]);
+    if (distance < radiusKm) score -= maxPenalty * (1 - distance / radiusKm);
+  });
+  applyZones(hazardZones.flood, 22);
+  applyZones(hazardZones.seismic, 30);
+  return clampScore(score, 25, 90);
+}
+
+// ---- AIDC 규모 모델: 전력·용수 공급 충족 + 민원 최소 전제의 규모별 적합도 ----
+const aidcClasses = [
+  { id: "hyper", label: "초대형 AIDC", itMw: 300, tagline: "300 MW+ · 프론티어 학습 캠퍼스" },
+  { id: "large", label: "대형 AIDC", itMw: 100, tagline: "100 MW · 하이퍼스케일 리전급" },
+  { id: "medium", label: "중형 AIDC", itMw: 40, tagline: "40 MW · 학습·서빙 혼합" },
+  { id: "small", label: "소형 AIDC", itMw: 10, tagline: "10 MW · 엣지·서빙 특화" },
+];
+
+// 표준구성(N+1 · 하이브리드 · 부하율 80% · PUE 1.25) 기준 공급 한도
+function siteSupplyLimits(site) {
+  const env = envFor(site);
+  const gridMax = (site.headroom / .72 + 50) / 1.25;
+  const waterMax = WATER_AVAIL_M3[env.waterStress] / (.8 * 1.25 * 8.76 * coolingProfiles.hybrid.wue * 1000);
+  return { gridMax, waterMax };
+}
+
+// 민원 리스크 페널티: 토지·인허가 갈등, 용수 경합, 주민 전력 경합(발전량 점유), 대도시 인접 — 규모가 클수록 증폭
+function complaintPenalty(site, cls) {
+  const env = envFor(site);
+  const intakeAtClass = cls.itMw * 1.25;
+  const share = site.gridReality && site.gridReality.mw50 ? (intakeAtClass / site.gridReality.mw50) * 100 : null;
+  let penalty = (100 - site.factors.land) * .15;
+  if (env.waterStress !== "LOW") penalty += 6;
+  if (share !== null) penalty += share >= 5 ? 10 : share >= 2 ? 5 : 0;
+  if (cls.itMw >= 100 && site.factors.urban >= 85) penalty += 6;
+  const scale = cls.itMw >= 300 ? 1.4 : cls.itMw >= 100 ? 1.2 : cls.itMw >= 40 ? 1 : .7;
+  return penalty * scale;
+}
+
+function classFitScore(site, cls) {
+  const base = getModelScore(site);
+  const { gridMax, waterMax } = siteSupplyLimits(site);
+  const supply = Math.min(gridMax, waterMax);
+  const supplyFit = Math.min(1, supply / cls.itMw);
+  const penalty = complaintPenalty(site, cls);
+  const score = Math.max(5, Math.min(99, Math.round(base * (.45 + .55 * supplyFit) - penalty)));
+  const ok = supplyFit >= 1 && penalty < 12;
+  const bottleneck = supplyFit < 1 ? (gridMax <= waterMax ? "계통 수전 부족" : "냉각 용수 부족") : (penalty >= 12 ? "민원 리스크" : null);
+  return { score, supplyFit, supply, penalty, ok, bottleneck };
+}
+
+function renderClassFit() {
+  const wrap = $("#scale-grid");
+  if (!wrap) return;
+  const pool = selected.id === "custom" ? [...candidates, selected] : candidates;
+  wrap.innerHTML = aidcClasses.map((cls) => {
+    const mine = classFitScore(selected, cls);
+    const ranked = pool.map((site) => ({ site, fit: classFitScore(site, cls) })).sort((a, b) => b.fit.score - a.fit.score);
+    const recommended = ranked.find((r) => r.fit.ok) || null;
+    const accels = Math.round((cls.itMw * 1000 * ACCELERATOR_IT_SHARE) / KW_PER_ACCELERATOR);
+    const verdict = mine.ok ? (mine.score >= 75 ? "적합" : "조건부 적합") : mine.bottleneck;
+    const verdictClass = mine.ok ? (mine.score >= 75 ? "good" : "cond") : "bad";
+    return `
+      <div class="scale-card">
+        <div class="scale-head"><b>${cls.label}</b><small>${cls.tagline} · H100급 ~${accels.toLocaleString()}장</small></div>
+        <div class="scale-score"><span>${selected.name}</span><strong>${mine.score}</strong><i class="scale-badge ${verdictClass}">${verdict}</i></div>
+        <div class="scale-bar"><i style="width:${mine.score}%"></i></div>
+        <div class="scale-meta">공급 한도 ~${Math.round(mine.supply)} MW (충족률 ${(mine.supplyFit * 100).toFixed(0)}%) · 민원 페널티 ${mine.penalty.toFixed(1)}</div>
+        <div class="scale-reco">${recommended
+          ? `추천 입지: <b>${recommended.site.name}</b> ${recommended.fit.score}점 · 공급 ~${Math.round(recommended.fit.supply)} MW`
+          : "전제 충족 후보 없음 — 계통·용수 보강 또는 규모 축소 필요"}</div>
+      </div>
+    `;
+  }).join("");
+}
+
 function createLeafletMap() {
   if (!window.L) return false;
   try {
@@ -604,6 +731,7 @@ function createLeafletMap() {
     drawSuitabilityLayer();
     drawContextLayer();
     drawFacilityLayer();
+    drawHazardLayer();
     map.on("click", (event) => {
       const closest = candidates.reduce((best, site) => {
         const distance = map.distance(event.latlng, site.coords);
@@ -759,6 +887,22 @@ function drawContextLayer() {
   mapLayers.context.forEach((layer) => map.removeLayer(layer));
 }
 
+// 재해 프록시존 레이어: 홍수 저지대(파랑)·지진 다발권(핑크). HAZARD 툴바로 opt-in.
+function drawHazardLayer() {
+  if (!map) return;
+  hazardZones.flood.forEach(([lat, lng, radiusKm, label]) => {
+    const zone = L.circle([lat, lng], { radius: radiusKm * 1000, color: "#52a8dc", weight: 1.2, dashArray: "5 5", opacity: .55, fillColor: "#52a8dc", fillOpacity: .08 })
+      .bindTooltip(`홍수 저지대 프록시 · ${label}`, { direction: "top", className: "dark-tooltip" });
+    mapLayers.hazard.push(zone);
+  });
+  hazardZones.seismic.forEach(([lat, lng, radiusKm, label]) => {
+    const zone = L.circle([lat, lng], { radius: radiusKm * 1000, color: "#f36d91", weight: 1.2, dashArray: "3 6", opacity: .55, fillColor: "#f36d91", fillOpacity: .06 })
+      .bindTooltip(`지진 다발권 프록시 · ${label}`, { direction: "top", className: "dark-tooltip" });
+    mapLayers.hazard.push(zone);
+  });
+  // opt-in: 초기에는 지도에 올리지 않음 (setLayerVisibility가 addTo로 표시)
+}
+
 function facilityMatchesFilter(facility) {
   return (registryFilter.lifecycle === "all" || facility.lifecycle === registryFilter.lifecycle)
     && (registryFilter.operator === "all" || facility.operator === registryFilter.operator);
@@ -863,11 +1007,14 @@ function getModelScore(site) {
   const powerWeight = Number($("#power-priority").value);
   const ecosystemWeight = Number($("#ecosystem-priority").value);
   const resilienceWeight = Number($("#resilience-priority").value);
-  const total = powerWeight + ecosystemWeight + resilienceWeight;
+  const politicalWeight = Number($("#political-priority").value);
+  const balanceWeight = Number($("#balance-priority").value);
+  const total = powerWeight + ecosystemWeight + resilienceWeight + politicalWeight + balanceWeight;
   const power = (site.factors.grid + site.factors.reserve) / 2;
   const ecosystem = (site.factors.urban + site.factors.transport + site.factors.telecom + site.factors.cloud + site.factors.university) / 5;
   const resilience = (site.factors.water + site.factors.resilience + site.factors.land) / 3;
-  return Math.round((power * powerWeight + ecosystem * ecosystemWeight + resilience * resilienceWeight) / total);
+  return Math.round((power * powerWeight + ecosystem * ecosystemWeight + resilience * resilienceWeight
+    + site.factors.political * politicalWeight + site.factors.balance * balanceWeight) / total);
 }
 
 function applyModelWeights(showMessage = false) {
@@ -875,6 +1022,8 @@ function applyModelWeights(showMessage = false) {
     ["power-priority", "power-priority-value"],
     ["ecosystem-priority", "ecosystem-priority-value"],
     ["resilience-priority", "resilience-priority-value"],
+    ["political-priority", "political-priority-value"],
+    ["balance-priority", "balance-priority-value"],
   ];
   values.forEach(([inputId, valueId]) => {
     const input = $(`#${inputId}`);
@@ -895,6 +1044,7 @@ function applyModelWeights(showMessage = false) {
   $("#selected-score").textContent = adjustedScore;
   $("#score-ring").style.setProperty("--score", adjustedScore);
   $("#method-score").textContent = adjustedScore;
+  renderClassFit();
   if (showMessage) showToast(`${selected.name} · 가중치 변경을 반영해 적합도를 ${adjustedScore}점으로 재계산했습니다`);
 }
 
@@ -938,6 +1088,9 @@ function calculateScenario(showMessage = false) {
     $("#reality-hv").textContent = `${reality.nearestHv.toFixed(1)} km · ${reality.hvLines50}회선`;
     const share = reality.mw50 ? (intake / reality.mw50) * 100 : null;
     $("#reality-share").textContent = share ? `${share.toFixed(1)}%` : "—";
+    $("#reality-kepco").textContent = selected.kepco
+      ? `${selected.kepco.name} ${selected.kepco.availableMw.toLocaleString()} MW (${selected.kepco.updated})`
+      : "미연동 · 스크리닝 프록시";
   }
   // ---- CAPEX 프록시와 표준구성(N+1·하이브리드·PUE 1.25·인입 5 km) 대비 증감 ----
   const hvKm = selected.gridReality ? selected.gridReality.nearestHv : (parseFloat(selected.distance) || 10);
@@ -1069,6 +1222,62 @@ function renderBrief(s) {
   $("#brief-site-name").textContent = site.name;
 }
 
+// ---- 후보지 비교 리포트: 인쇄 뷰 생성 후 브라우저 인쇄(PDF 저장) 호출 ----
+function buildReportHtml() {
+  const pool = selected.id === "custom" ? [...candidates, selected] : candidates;
+  const weightLine = [
+    ["POWER", "power-priority"], ["ECOSYSTEM", "ecosystem-priority"], ["RESILIENCE", "resilience-priority"],
+    ["POLITICAL", "political-priority"], ["BALANCE", "balance-priority"],
+  ].map(([label, id]) => `${label} ${$(`#${id}`).value}%`).join(" · ");
+  const scenarioLine = `IT ${$("#load-value").textContent} MW · PUE ${$("#pue-value").textContent} · ${$("#redundancy-value").textContent} · 부하율 ${$("#util-value").textContent}% · ${coolingProfiles[coolingMode].label}`;
+  const headCells = aidcClasses.map((cls) => `<th>${cls.label.replace(" AIDC", "")}<br><small>${cls.itMw} MW</small></th>`).join("");
+  const rows = pool.map((site) => {
+    const env = envFor(site);
+    const { gridMax, waterMax } = siteSupplyLimits(site);
+    const classCells = aidcClasses.map((cls) => {
+      const fit = classFitScore(site, cls);
+      return `<td class="${fit.ok ? "ok" : "no"}">${fit.score}<br><small>${fit.ok ? (fit.score >= 75 ? "적합" : "조건부") : fit.bottleneck}</small></td>`;
+    }).join("");
+    return `<tr>
+      <td><b>${site.name}</b><br><small>${site.region}</small></td>
+      <td>${getModelScore(site)}</td>
+      ${classCells}
+      <td>${site.gridReality ? `${site.gridReality.mw50.toLocaleString()} MW · ${site.gridReality.nearestHv.toFixed(1)} km` : "—"}</td>
+      <td>~${Math.round(Math.min(gridMax, waterMax))} MW<br><small>${gridMax <= waterMax ? "계통" : "용수"} 병목</small></td>
+      <td>${env.waterStress}<br><small>${env.carbonIntensity.toFixed(2)} kg/kWh</small></td>
+      <td>${site.kepco ? `${site.kepco.availableMw.toLocaleString()} MW` : "미연동"}</td>
+    </tr>`;
+  }).join("");
+  const recoRows = aidcClasses.map((cls) => {
+    const ranked = pool.map((site) => ({ site, fit: classFitScore(site, cls) })).sort((a, b) => b.fit.score - a.fit.score);
+    const reco = ranked.find((r) => r.fit.ok);
+    return `<tr><td>${cls.label}</td><td>${reco ? `<b>${reco.site.name}</b> · ${reco.fit.score}점 · 공급 ~${Math.round(reco.fit.supply)} MW` : "전제 충족 후보 없음 (계통·용수 보강 필요)"}</td></tr>`;
+  }).join("");
+  return `
+    <h1>GRID / SITING LAB · 후보지 비교 리포트</h1>
+    <p class="report-meta">생성일 2026-07-15 · 가중치: ${weightLine} · 시나리오: ${scenarioLine}</p>
+    <h2>후보지 × 규모 모델 적합도 (표준구성 N+1 · 하이브리드 · 부하율 80% · PUE 1.25 기준)</h2>
+    <table>
+      <thead><tr><th>후보지</th><th>적합도</th>${headCells}<th>반경 50 km 발전 · 최근접 345 kV+</th><th>공급 한도</th><th>용수 · 탄소</th><th>한전 접속여유</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <h2>규모 모델별 추천 입지 (전력·용수 충족 + 민원 페널티 &lt; 12 전제)</h2>
+    <table><tbody>${recoRows}</tbody></table>
+    <p class="report-note">본 리포트는 OpenStreetMap/OpenInfraMap 공개 데이터 스냅샷(2026-07-15)과 탐색용 프록시 가중치로 생성된 초기 스크리닝 자료입니다.
+    한전 계통접속 검토, 용수 배분 협의, 토지·인허가, 재해·환경영향평가, 주민 수용성 조사를 대체하지 않습니다.
+    재해·정치·균형발전 요인과 민원 페널티는 공개 자료 기반 프록시이며, 한전 접속여유는 data/kepco_capacity.json 연동 시 실데이터로 대체됩니다.</p>
+  `;
+}
+
+function exportReport() {
+  $("#report-view").innerHTML = buildReportHtml();
+  document.body.classList.add("printing-report");
+  const cleanup = () => document.body.classList.remove("printing-report");
+  window.addEventListener("afterprint", cleanup, { once: true });
+  window.setTimeout(() => window.print(), 60);
+  showToast("브라우저 인쇄 대화상자에서 'PDF로 저장'을 선택하세요");
+}
+
 function bindUI() {
   renderCandidates();
   renderRegistry();
@@ -1109,6 +1318,7 @@ function bindUI() {
     else if (layer === "power") $(".fallback-grid").style.opacity = wasActive ? ".18" : "1";
     else if (layer === "plants") showToast("발전원 레이어는 지도 연결 후 표시됩니다");
     else if (layer === "facilities") showToast("시설 레지스트리 레이어는 지도 연결 후 표시됩니다");
+    else if (layer === "hazard") showToast("재해 리스크 레이어는 지도 연결 후 표시됩니다");
     else if (layer === "context") showToast(wasActive ? "주변 인프라 레이어를 숨겼습니다" : "도시·교통·통신·IDC 레이어를 표시했습니다");
     else showToast(wasActive ? "적합도 레이어를 숨겼습니다" : "적합도 레이어를 표시했습니다");
   }));
@@ -1122,6 +1332,7 @@ function bindUI() {
   $("#zoom-in").addEventListener("click", () => map && map.zoomIn());
   $("#zoom-out").addEventListener("click", () => map && map.zoomOut());
   $("#reset-view").addEventListener("click", () => map ? map.setView([36.25, 127.187], 7.1) : showToast("대한민국 전체 보기"));
+  $("#export-report").addEventListener("click", exportReport);
   $("#compare-button").addEventListener("click", () => {
     $("#candidates-section").classList.toggle("compare-mode");
     showToast("후보지 비교 모드 · 카드별 지표를 확인하세요");
