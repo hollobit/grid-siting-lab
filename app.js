@@ -697,23 +697,125 @@ function renderClassFit() {
   const pool = selected.id === "custom" ? [...candidates, selected] : candidates;
   wrap.innerHTML = aidcClasses.map((cls) => {
     const mine = classFitScore(selected, cls);
-    const ranked = pool.map((site) => ({ site, fit: classFitScore(site, cls) })).sort((a, b) => b.fit.score - a.fit.score);
-    const recommended = ranked.find((r) => r.fit.ok) || null;
     const accels = Math.round((cls.itMw * 1000 * ACCELERATOR_IT_SHARE) / KW_PER_ACCELERATOR);
     const verdict = mine.ok ? (mine.score >= 75 ? "적합" : "조건부 적합") : mine.bottleneck;
     const verdictClass = mine.ok ? (mine.score >= 75 ? "good" : "cond") : "bad";
+    let recoHtml;
+    if (recommendedByClass && recommendedByClass[cls.id]) {
+      recoHtml = `전국 추천 TOP 5 (지도 표시): ${recommendedByClass[cls.id]
+        .map((entry, rank) => `${rank + 1}. <b>${entry.site.name}</b> ${entry.fit.score}${entry.fit.ok ? "" : "△"}`)
+        .join(" · ")}${recommendedByClass[cls.id].some((entry) => !entry.fit.ok) ? "<br><small>△ 전력·용수/민원 전제 미충족 — 보강 전제 후보</small>" : ""}`;
+    } else {
+      const ranked = pool.map((site) => ({ site, fit: classFitScore(site, cls) })).sort((a, b) => b.fit.score - a.fit.score);
+      const recommended = ranked.find((r) => r.fit.ok) || null;
+      recoHtml = recommended
+        ? `추천 입지: <b>${recommended.site.name}</b> ${recommended.fit.score}점 · 공급 ~${Math.round(recommended.fit.supply)} MW`
+        : "전제 충족 후보 없음 — 계통·용수 보강 또는 규모 축소 필요";
+    }
     return `
       <div class="scale-card">
         <div class="scale-head"><b>${cls.label}</b><small>${cls.tagline} · H100급 ~${accels.toLocaleString()}장</small></div>
         <div class="scale-score"><span>${selected.name}</span><strong>${mine.score}</strong><i class="scale-badge ${verdictClass}">${verdict}</i></div>
         <div class="scale-bar"><i style="width:${mine.score}%"></i></div>
         <div class="scale-meta">공급 한도 ~${Math.round(mine.supply)} MW (충족률 ${(mine.supplyFit * 100).toFixed(0)}%) · 민원 페널티 ${mine.penalty.toFixed(1)}</div>
-        <div class="scale-reco">${recommended
-          ? `추천 입지: <b>${recommended.site.name}</b> ${recommended.fit.score}점 · 공급 ~${Math.round(recommended.fit.supply)} MW`
-          : "전제 충족 후보 없음 — 계통·용수 보강 또는 규모 축소 필요"}</div>
+        <div class="scale-reco">${recoHtml}</div>
       </div>
     `;
   }).join("");
+}
+
+// ---- 규모별 전국 추천: 345 kV+ 회선 시드 → 임의 지점 채점 → 클래스별 상위 5곳을 지도에 표시 ----
+let seedSites = null;
+let recommendedByClass = null;
+let recommendationMarkers = [];
+const classMarkerStyles = {
+  hyper: { color: "#aa91ff", radius: 13 },
+  large: { color: "#f36d91", radius: 10 },
+  medium: { color: "#52d1dc", radius: 7.5 },
+  small: { color: "#7ad6a2", radius: 5.5 },
+};
+
+// 시드: 345 kV+ 회선 중간점을 0.18°(~20 km) 셀로 중복 제거 — 계통 인접·육상 지점만 남는다
+function generateSeedPoints() {
+  if (!gridData) return [];
+  const cells = new Map();
+  gridData.lines.lines.forEach((line) => {
+    if (line.v < 345) return;
+    const mid = line.c[Math.floor(line.c.length / 2)];
+    const key = `${Math.round(mid[0] / .18)}:${Math.round(mid[1] / .18)}`;
+    if (!cells.has(key)) cells.set(key, mid);
+  });
+  return [...cells.values()];
+}
+
+function computeClassRecommendations(onDone) {
+  if (!gridData) return;
+  const seeds = generateSeedPoints();
+  seedSites = [];
+  let cursor = 0;
+  const CHUNK = 12; // UI 블로킹 방지: 시드를 배치로 나눠 채점
+  const step = () => {
+    const end = Math.min(cursor + CHUNK, seeds.length);
+    for (; cursor < end; cursor++) {
+      const [lat, lng] = seeds[cursor];
+      const site = buildCustomSite(lat, lng);
+      site.id = `seed-${cursor}`;
+      if (site.name === "사용자 지정 지점") site.name = `신규 후보 ${lat.toFixed(2)}·${lng.toFixed(2)}`;
+      seedSites.push(site);
+    }
+    if (cursor < seeds.length) window.setTimeout(step, 0);
+    else {
+      rankRecommendations();
+      if (onDone) onDone(seeds.length);
+    }
+  };
+  step();
+}
+
+function rankRecommendations() {
+  if (!seedSites) return;
+  const pool = [...candidates, ...seedSites];
+  recommendedByClass = {};
+  aidcClasses.forEach((cls) => {
+    const ranked = pool
+      .map((site) => ({ site, fit: classFitScore(site, cls) }))
+      .sort((a, b) => (b.fit.ok - a.fit.ok) || (b.fit.score - a.fit.score));
+    const picks = [];
+    for (const entry of ranked) {
+      if (picks.length >= 5) break;
+      if (picks.some((pick) => approxKm(pick.site.coords, entry.site.coords) < 30)) continue; // 지리적 분산 보장
+      picks.push(entry);
+    }
+    recommendedByClass[cls.id] = picks;
+  });
+  drawRecommendationLayer();
+}
+
+function drawRecommendationLayer() {
+  if (!map || !recommendedByClass) return;
+  recommendationMarkers.forEach((marker) => map.removeLayer(marker));
+  mapLayers.suitability = mapLayers.suitability.filter((layer) => !recommendationMarkers.includes(layer));
+  recommendationMarkers = [];
+  const control = $('[data-layer="suitability"]');
+  const visible = control ? control.classList.contains("active") : true;
+  aidcClasses.forEach((cls) => {
+    recommendedByClass[cls.id].forEach((entry, rank) => {
+      const style = classMarkerStyles[cls.id];
+      const marker = L.circleMarker(entry.site.coords, {
+        radius: style.radius, color: style.color, weight: rank === 0 ? 2.2 : 1.4,
+        fillColor: style.color, fillOpacity: .1, dashArray: "4 3",
+      }).bindTooltip(
+        `${cls.label} 추천 ${rank + 1}위 · ${entry.site.name} · ${entry.fit.score}점${entry.fit.ok ? "" : " · 전제 미충족(보강 필요)"}<br>공급 한도 ~${Math.round(entry.fit.supply)} MW · 민원 페널티 ${entry.fit.penalty.toFixed(1)}`,
+        { direction: "top", className: "dark-tooltip" },
+      ).on("click", () => {
+        if (String(entry.site.id).startsWith("seed-")) selectCustomLocation(entry.site.coords[0], entry.site.coords[1]);
+        else renderSelected(entry.site);
+      });
+      if (visible) marker.addTo(map);
+      mapLayers.suitability.push(marker);
+      recommendationMarkers.push(marker);
+    });
+  });
 }
 
 function createLeafletMap() {
@@ -1044,6 +1146,7 @@ function applyModelWeights(showMessage = false) {
   $("#selected-score").textContent = adjustedScore;
   $("#score-ring").style.setProperty("--score", adjustedScore);
   $("#method-score").textContent = adjustedScore;
+  if (seedSites) rankRecommendations(); // 가중치 변경 시 전국 추천 재순위 (시드 채점은 재사용)
   renderClassFit();
   if (showMessage) showToast(`${selected.name} · 가중치 변경을 반영해 적합도를 ${adjustedScore}점으로 재계산했습니다`);
 }
@@ -1356,5 +1459,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   createLeafletMap();
   if (hasGrid) {
     showToast(`OSM 전력망 스냅샷 로드 · 송전선 ${gridData.lines.count.toLocaleString()} · 발전소 ${gridData.plants.count.toLocaleString()}`);
+    // 전국 시드 채점은 무거우므로 초기 렌더 후 백그라운드 배치로 수행
+    window.setTimeout(() => computeClassRecommendations((seedCount) => {
+      renderClassFit();
+      showToast(`규모별 전국 추천 계산 완료 · 시드 ${seedCount}곳 → 클래스별 TOP 5 지도 표시`);
+    }), 600);
   }
 });

@@ -75,6 +75,12 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 .line-dot.purple, .legend-line.purple { background: var(--purple); }
 .legend-line.rail { background: #eef3f5; }
 .legend-line.road { background: #f2c06e; }
+.legend-divider { width: 1px; height: 12px; background: rgba(177,210,211,.25); }
+.legend-ring { width: 9px; height: 9px; display: inline-block; vertical-align: middle; margin-right: 4px; border-radius: 50%; border: 1.5px dashed; }
+.legend-ring.purple { border-color: var(--purple); }
+.legend-ring.pink { border-color: var(--pink); }
+.legend-ring.cyan { border-color: var(--cyan); }
+.legend-ring.green { border-color: var(--green); }
 .metric-note { padding-left: 28px; background: linear-gradient(90deg, rgba(242,163,91,.04), transparent); }
 .metric-note p { max-width: 230px; margin: 12px 0 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .text-button { padding: 0; border: 0; background: none; color: var(--orange); font: 10px var(--mono); }
@@ -119,7 +125,7 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 .map-icon-btn { width: 34px; height: 34px; border: 0; border-right: 1px solid rgba(177,210,211,.14); font-size: 18px; background: transparent; color: #a4b9ba; }
 .map-icon-btn:last-child { border-right: 0; }
 .toolbar-divider { width: 1px; height: 18px; background: rgba(177,210,211,.2); }
-.map-legend { position: absolute; z-index: 600; bottom: 22px; left: 18px; display: flex; align-items: center; gap: 15px; padding: 10px 12px; color: #a3b6b8; background: rgba(9,18,25,.82); border: 1px solid rgba(177,210,211,.14); backdrop-filter: blur(10px); font: 9px var(--mono); }
+.map-legend { position: absolute; z-index: 600; bottom: 22px; left: 18px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 13px; max-width: 470px; padding: 10px 12px; color: #a3b6b8; background: rgba(9,18,25,.82); border: 1px solid rgba(177,210,211,.14); backdrop-filter: blur(10px); font: 9px var(--mono); }
 .legend-title { color: #e7f1f1; margin-right: 2px; letter-spacing: .07em; }
 .legend-line { width: 18px; height: 2px; display: inline-block; vertical-align: middle; margin-right: 5px; }
 .map-insight { position: absolute; z-index: 600; left: 18px; bottom: 93px; width: 177px; padding: 13px; background: rgba(10,19,26,.82); border-left: 2px solid var(--orange); backdrop-filter: blur(10px); }
