@@ -4,6 +4,12 @@ GRID / SITING LAB의 변경 이력. 배포: https://hollobit.github.io/grid-siti
 
 ## 2026-07-16
 
+### 버그 수정 · MEGA 옵션 패널
+
+- `hidden` 속성이 있어도 CSS `display:flex`가 UA `[hidden]{display:none}`을 덮어써 옵션 패널이 로드 직후부터 항상 열려 있던 문제 수정 (`[hidden]{display:none!important}` 규칙 추가).
+- MEGA 버튼이 `data-layer` 없는 상태로 공용 `.map-tool` 핸들러까지 타면서 active 클래스가 이중 토글되던 충돌 제거.
+- 허브 배분 계산 완료 전 단계 토글 시 성공 토스트가 뜨지만 아무것도 표시되지 않던 레이스 → "계산 중" 안내로 교체.
+
 ### 지도 MEGA 버튼 · 1/2단계 표시 옵션
 
 - 지도 툴바에 **MEGA** 버튼 추가 — 클릭 시 옵션 패널이 열리고 "1단계 2029 · 허브 9곳"(주황)과 "2단계 2035 · RE100·SMR·HVDC"(시안 점선)를 지도에서 직접 개별 토글.

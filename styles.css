@@ -338,6 +338,7 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
 .hazard-icon { color: var(--pink); font-size: 11px; line-height: 13px; }
 .mega-icon { color: var(--orange); font-size: 11px; line-height: 13px; }
 .mega-map-options { position: absolute; z-index: 650; top: 58px; left: 18px; display: flex; flex-direction: column; border: 1px solid rgba(177,210,211,.2); background: rgba(10, 20, 27, .92); backdrop-filter: blur(12px); }
+.mega-map-options[hidden] { display: none !important; }
 .mega-opt { display: flex; align-items: center; gap: 8px; padding: 9px 13px; border: 0; border-bottom: 1px solid rgba(177,210,211,.12); background: transparent; color: #8fa7aa; font: 9px var(--mono); letter-spacing: .04em; text-align: left; white-space: nowrap; }
 .mega-opt:last-child { border-bottom: 0; }
 .mega-opt:hover { color: #f0f8f8; }

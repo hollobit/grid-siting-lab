@@ -1541,6 +1541,7 @@ let megaPhaseState = { p1: false, p2: false };
 function setMegaPhase(phase, show, { scroll = false } = {}) {
   drawMegaLayers();
   if (!map) { showToast("메가 프로젝트 레이어는 지도 연결 후 표시됩니다"); return; }
+  if (!gwStrategy) { showToast("허브 배분 계산 중입니다 — 잠시 후 다시 시도해주세요"); return; }
   megaPhaseState[phase] = show;
   megaLayers[phase].forEach((layer) => { if (show) layer.addTo(map); else map.removeLayer(layer); });
   const sectionButton = $(`#mega-${phase}-btn`);
@@ -1685,6 +1686,7 @@ function bindUI() {
   }));
   $$(".map-tool").forEach((tool) => tool.addEventListener("click", () => {
     const layer = tool.dataset.layer;
+    if (!layer) return; // MEGA 등 data-layer 없는 버튼은 전용 핸들러가 처리
     const wasActive = tool.classList.contains("active");
     tool.classList.toggle("active", !wasActive);
     if (map) toggleLayer(layer);
