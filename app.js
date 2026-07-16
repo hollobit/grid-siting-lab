@@ -1535,16 +1535,28 @@ function drawMegaLayers() {
   });
 }
 
-function toggleMegaPhase(phase, button) {
+let megaPhaseState = { p1: false, p2: false };
+
+// 섹션 버튼과 지도 툴바 옵션이 같은 상태를 공유한다
+function setMegaPhase(phase, show, { scroll = false } = {}) {
   drawMegaLayers();
   if (!map) { showToast("메가 프로젝트 레이어는 지도 연결 후 표시됩니다"); return; }
-  const show = !button.classList.contains("active");
-  button.classList.toggle("active", show);
+  megaPhaseState[phase] = show;
   megaLayers[phase].forEach((layer) => { if (show) layer.addTo(map); else map.removeLayer(layer); });
-  if (show) $("#map-section").scrollIntoView({ behavior: "smooth", block: "start" });
+  const sectionButton = $(`#mega-${phase}-btn`);
+  const mapOption = $(`#map-mega-${phase}`);
+  if (sectionButton) sectionButton.classList.toggle("active", show);
+  if (mapOption) mapOption.classList.toggle("active", show);
+  const megaTool = $('[data-mega-toggle]');
+  if (megaTool) megaTool.classList.toggle("active", megaPhaseState.p1 || megaPhaseState.p2 || !$("#mega-map-options").hidden);
+  if (show && scroll) $("#map-section").scrollIntoView({ behavior: "smooth", block: "start" });
   showToast(show
     ? `${phase === "p1" ? "1단계 2029 허브 9곳" : "2단계 2035 확장(허브 확장 + RE100 + SMR + HVDC)"}을 지도에 표시했습니다`
-    : "메가 프로젝트 레이어를 숨겼습니다");
+    : `${phase === "p1" ? "1단계" : "2단계"} 레이어를 숨겼습니다`);
+}
+
+function toggleMegaPhase(phase, button) {
+  setMegaPhase(phase, !button.classList.contains("active"), { scroll: true });
 }
 
 function renderMegaAlloc() {
@@ -1696,6 +1708,13 @@ function bindUI() {
   $("#export-report").addEventListener("click", exportReport);
   $("#mega-p1-btn").addEventListener("click", () => toggleMegaPhase("p1", $("#mega-p1-btn")));
   $("#mega-p2-btn").addEventListener("click", () => toggleMegaPhase("p2", $("#mega-p2-btn")));
+  $('[data-mega-toggle]').addEventListener("click", () => {
+    const panel = $("#mega-map-options");
+    panel.hidden = !panel.hidden;
+    $('[data-mega-toggle]').classList.toggle("active", !panel.hidden || megaPhaseState.p1 || megaPhaseState.p2);
+  });
+  $("#map-mega-p1").addEventListener("click", () => setMegaPhase("p1", !megaPhaseState.p1));
+  $("#map-mega-p2").addEventListener("click", () => setMegaPhase("p2", !megaPhaseState.p2));
   $("#compare-button").addEventListener("click", () => {
     $("#candidates-section").classList.toggle("compare-mode");
     showToast("후보지 비교 모드 · 카드별 지표를 확인하세요");

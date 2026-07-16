@@ -336,6 +336,17 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
 .reality-items b { color: var(--ink); font-weight: 500; }
 
 .hazard-icon { color: var(--pink); font-size: 11px; line-height: 13px; }
+.mega-icon { color: var(--orange); font-size: 11px; line-height: 13px; }
+.mega-map-options { position: absolute; z-index: 650; top: 58px; left: 18px; display: flex; flex-direction: column; border: 1px solid rgba(177,210,211,.2); background: rgba(10, 20, 27, .92); backdrop-filter: blur(12px); }
+.mega-opt { display: flex; align-items: center; gap: 8px; padding: 9px 13px; border: 0; border-bottom: 1px solid rgba(177,210,211,.12); background: transparent; color: #8fa7aa; font: 9px var(--mono); letter-spacing: .04em; text-align: left; white-space: nowrap; }
+.mega-opt:last-child { border-bottom: 0; }
+.mega-opt:hover { color: #f0f8f8; }
+.mega-opt.active { color: #f0f8f8; background: rgba(242,163,91,.12); }
+.mega-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid; flex-shrink: 0; }
+.mega-dot.p1 { border-color: var(--orange); background: rgba(242,163,91,.4); }
+.mega-dot.p2 { border-color: var(--cyan); background: rgba(82,209,220,.15); border-style: dashed; }
+.mega-opt.active .mega-dot.p1 { background: var(--orange); }
+.mega-opt.active .mega-dot.p2 { background: rgba(82,209,220,.5); }
 
 .scale-section { margin-top: 16px; padding: 25px; }
 .scale-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
@@ -536,6 +547,7 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 2px s
   .map-toolbar-left { left: 10px; right: 10px; }
   .map-tool { flex: 1; justify-content: center; padding: 0 6px; font-size: 7px; }
   .map-toolbar-right { top: 62px; right: 10px; }
+  .mega-map-options { top: 54px; left: 10px; }
   .map-legend { left: 10px; bottom: 17px; gap: 7px; padding: 8px; font-size: 7px; }
   .map-legend .legend-title { display: none; }
   .map-insight { left: 10px; bottom: 71px; }
