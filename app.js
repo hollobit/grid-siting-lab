@@ -865,6 +865,7 @@ function computeGwStrategy(hubs) {
     return { site, cluster, it2029, it2035, tasks };
   });
   renderGwStrategy();
+  renderMegaAlloc();
 }
 
 function renderGwStrategy() {
@@ -1488,6 +1489,100 @@ function renderBrief(s) {
   $("#brief-site-name").textContent = site.name;
 }
 
+// ---- MEGA PROJECT: 1단계(2029)·2단계(2035) 지도 레이어와 배분 테이블 ----
+const re100Zones = [
+  { name: "새만금 RE100 캠퍼스", coords: [35.8, 126.6], mw: 1200, note: "수상태양광·산단 계통 연계" },
+  { name: "솔라시도 RE100 캠퍼스", coords: [34.6, 126.3], mw: 1000, note: "태양광+ESS 직결" },
+  { name: "신안 해상풍력 연계존", coords: [34.9, 126.15], mw: 1500, note: "8 GW급 해상풍력 직접 PPA" },
+];
+const smrHubProposal = { name: "동해안 SMR 직결 허브 (제안)", coords: [36.6, 129.35], mw: 2000, note: "SMR 0.7 GW급 × N + HVDC 병행" };
+const hvdcProposals = [
+  { label: "HVDC 동해안—수도권 (계획 참조 회랑)", coords: [[37.09, 129.39], [37.3, 128.6], [37.45, 127.8], [37.5, 127.3]] },
+  { label: "서해안 화력벨트—중부 보강 (제안 회랑)", coords: [[36.4, 126.49], [36.6, 126.9], [36.9, 127.2]] },
+];
+let megaLayers = { p1: [], p2: [] };
+let megaDrawn = false;
+
+function drawMegaLayers() {
+  if (!map || !gwStrategy || megaDrawn) return;
+  megaDrawn = true;
+  gwStrategy.forEach((hub) => {
+    const p1 = L.circleMarker(hub.site.coords, {
+      radius: Math.max(7, Math.min(14, hub.it2029 / 70)), color: "#0e1820", weight: 1.6,
+      fillColor: "#f2a35b", fillOpacity: .55,
+    }).bindTooltip(`1단계 2029 · ${hub.site.name}<br>IT ${hub.it2029.toLocaleString()} MW (직접연계 10% 프록시)`, { direction: "top", className: "dark-tooltip" })
+      .on("click", () => selectCustomLocation(hub.site.coords[0], hub.site.coords[1]));
+    megaLayers.p1.push(p1);
+    const p2 = L.circle(hub.site.coords, {
+      radius: 24000, color: "#52d1dc", weight: 2, opacity: .6, dashArray: "6 6", fillColor: "#52d1dc", fillOpacity: .04,
+    }).bindTooltip(`2단계 2035 · ${hub.site.name}<br>IT ${hub.it2035.toLocaleString()} MW (계통 보강 + 신규 전원 20% 프록시)`, { direction: "top", className: "dark-tooltip" });
+    megaLayers.p2.push(p2);
+  });
+  re100Zones.forEach((zone) => {
+    const marker = L.circleMarker(zone.coords, { radius: 10, color: "#7ad6a2", weight: 2.2, dashArray: "4 3", fillColor: "#7ad6a2", fillOpacity: .15 })
+      .bindTooltip(`2단계 RE100 존 · ${zone.name}<br>목표 ${zone.mw.toLocaleString()} MW · ${zone.note}`, { direction: "top", className: "dark-tooltip" })
+      .on("click", () => selectCustomLocation(zone.coords[0], zone.coords[1]));
+    megaLayers.p2.push(marker);
+  });
+  const smrMarker = L.circleMarker(smrHubProposal.coords, { radius: 11, color: "#aa91ff", weight: 2.2, dashArray: "4 3", fillColor: "#aa91ff", fillOpacity: .15 })
+    .bindTooltip(`2단계 · ${smrHubProposal.name}<br>목표 ${smrHubProposal.mw.toLocaleString()} MW · ${smrHubProposal.note}`, { direction: "top", className: "dark-tooltip" })
+    .on("click", () => selectCustomLocation(smrHubProposal.coords[0], smrHubProposal.coords[1]));
+  megaLayers.p2.push(smrMarker);
+  hvdcProposals.forEach((line) => {
+    const path = L.polyline(line.coords, { color: "#aa91ff", weight: 3.4, opacity: .5, dashArray: "10 8" })
+      .bindTooltip(line.label, { sticky: true, className: "dark-tooltip" });
+    megaLayers.p2.push(path);
+  });
+}
+
+function toggleMegaPhase(phase, button) {
+  drawMegaLayers();
+  if (!map) { showToast("메가 프로젝트 레이어는 지도 연결 후 표시됩니다"); return; }
+  const show = !button.classList.contains("active");
+  button.classList.toggle("active", show);
+  megaLayers[phase].forEach((layer) => { if (show) layer.addTo(map); else map.removeLayer(layer); });
+  if (show) $("#map-section").scrollIntoView({ behavior: "smooth", block: "start" });
+  showToast(show
+    ? `${phase === "p1" ? "1단계 2029 허브 9곳" : "2단계 2035 확장(허브 확장 + RE100 + SMR + HVDC)"}을 지도에 표시했습니다`
+    : "메가 프로젝트 레이어를 숨겼습니다");
+}
+
+function renderMegaAlloc() {
+  const wrap = $("#mega-alloc");
+  if (!wrap || !gwStrategy) return;
+  const sum2029 = gwStrategy.reduce((sum, hub) => sum + hub.it2029, 0);
+  const sum2035 = gwStrategy.reduce((sum, hub) => sum + hub.it2035, 0);
+  const re100Total = re100Zones.reduce((sum, zone) => sum + zone.mw, 0);
+  const gap2029 = GW_TARGET_2029 - sum2029;
+  const residual2035 = GW_TARGET_2035 - sum2035 - re100Total - smrHubProposal.mw;
+  wrap.innerHTML = `
+    <table class="gw-table mega-table">
+      <thead><tr><th>구성 요소</th><th>1단계 2029</th><th>2단계 2035</th><th>근거·수단</th></tr></thead>
+      <tbody>
+        <tr><td><b>GW급 발전 클러스터 허브 9곳</b><br><small>고리·서인천·한울·보령·당진·광양·한빛·포천·월성</small></td>
+          <td>${sum2029.toLocaleString()} MW</td><td>${sum2035.toLocaleString()} MW</td>
+          <td class="gw-tasks">직접연계 10% → 계통 보강·신규 전원 병행 20% 프록시</td></tr>
+        <tr><td><b>폐지화력 부지 전환 + 수도권 서빙존</b></td>
+          <td>${Math.max(0, gap2029).toLocaleString()} MW</td><td>—</td>
+          <td class="gw-tasks">석탄 단계 폐지(당진·보령·태안권) 부지·계통 재활용, 서인천권 저지연 서빙 한정</td></tr>
+        <tr><td><b>호남 RE100 존 3곳</b><br><small>새만금 · 솔라시도 · 신안 해상풍력</small></td>
+          <td>—</td><td>${re100Total.toLocaleString()} MW</td>
+          <td class="gw-tasks">재생에너지 확충 계획 연계 직접 PPA · RE100 전용 캠퍼스</td></tr>
+        <tr><td><b>SMR 직결 허브 (동해안 제안)</b></td>
+          <td>—</td><td>${smrHubProposal.mw.toLocaleString()} MW</td>
+          <td class="gw-tasks">전기본 SMR 실증 방향 연계 · 0.7 GW급 × N 직결</td></tr>
+        <tr><td><b>HVDC 재배분·예비</b></td>
+          <td>—</td><td>${Math.max(0, residual2035).toLocaleString()} MW</td>
+          <td class="gw-tasks">동해안—수도권 HVDC 개통 후 허브 재배분 · 수요 변동 예비</td></tr>
+      </tbody>
+      <tfoot><tr><td><b>합계 / 정부 목표</b></td>
+        <td><b>${GW_TARGET_2029.toLocaleString()}</b> MW</td>
+        <td><b>${GW_TARGET_2035.toLocaleString()}</b> MW</td>
+        <td class="gw-tasks">모든 배분은 탐색용 프록시 — 한전 접속여유·전기본 확정치 연동 시 재계산</td></tr></tfoot>
+    </table>
+  `;
+}
+
 // ---- 후보지 비교 리포트: 인쇄 뷰 생성 후 브라우저 인쇄(PDF 저장) 호출 ----
 function buildReportHtml() {
   const pool = selected.id === "custom" ? [...candidates, selected] : candidates;
@@ -1599,6 +1694,8 @@ function bindUI() {
   $("#zoom-out").addEventListener("click", () => map && map.zoomOut());
   $("#reset-view").addEventListener("click", () => map ? map.setView([36.25, 127.187], 7.1) : showToast("대한민국 전체 보기"));
   $("#export-report").addEventListener("click", exportReport);
+  $("#mega-p1-btn").addEventListener("click", () => toggleMegaPhase("p1", $("#mega-p1-btn")));
+  $("#mega-p2-btn").addEventListener("click", () => toggleMegaPhase("p2", $("#mega-p2-btn")));
   $("#compare-button").addEventListener("click", () => {
     $("#candidates-section").classList.toggle("compare-mode");
     showToast("후보지 비교 모드 · 카드별 지표를 확인하세요");

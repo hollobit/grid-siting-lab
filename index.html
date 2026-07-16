@@ -27,7 +27,8 @@
         <nav class="main-nav" aria-label="주요 메뉴">
           <button class="nav-item active" data-scroll-target="map-section">MAP <span>01</span></button>
           <button class="nav-item" data-scroll-target="scenario-panel">SCENARIO <span>02</span></button>
-          <button class="nav-item" data-scroll-target="sources">DATA SOURCES <span>03</span></button>
+          <button class="nav-item" data-scroll-target="mega-project">MEGA PROJECT <span>03</span></button>
+          <button class="nav-item" data-scroll-target="sources">DATA SOURCES <span>04</span></button>
         </nav>
 
         <div class="topbar-actions">
@@ -309,6 +310,112 @@
             <div id="gw-strategy-body"></div>
           </div>
           <div class="registry-note">규모별 점수 = 기본 적합도 × (0.45 + 0.55 × 공급충족률) − 민원 페널티. 공급 한도는 계통 수전 여유와 냉각 용수 가용 프록시 중 병목값이며, 민원 페널티는 토지·인허가 취약, 용수 스트레스, 주민 전력 경합(발전량 점유율), 대도시 인접을 규모 계수(초대형 ×1.4)로 증폭한 값입니다. 한전 접속여유 데이터 연동 시 공급 한도가 실데이터로 대체됩니다. 초대형 신설 후보의 직접연계 비율(10%)·개선 목표치(72)는 협상·투자 전제의 탐색용 프록시입니다.</div>
+        </section>
+
+        <section class="mega-section panel-card" id="mega-project">
+          <div class="context-header">
+            <div>
+              <p class="eyebrow">MEGA PROJECT · NATIONAL AI DC PROGRAM</p>
+              <h2>국가 AI 데이터센터 <em>8.4 → 18.4 GW</em> 달성 설계</h2>
+            </div>
+            <div class="context-header-actions">
+              <div class="mega-phase-buttons">
+                <button class="outline-button mega-phase-btn" id="mega-p1-btn" type="button">1단계 2029 지도 표시</button>
+                <button class="outline-button mega-phase-btn" id="mega-p2-btn" type="button">2단계 2035 확장 표시</button>
+              </div>
+              <div class="context-header-note"><span class="status-dot"></span> 정부 목표: 2029년 8.4 GW → 2035년 최대 18.4 GW</div>
+            </div>
+          </div>
+          <p class="context-description">전력수급기본계획(11차 전기본)의 공개 방향 — 신규 대형원전·SMR 실증, 재생에너지 확충(2030 72 GW → 2038 122 GW급), 석탄 단계 폐지, 동해안—수도권 HVDC 등 계통 보강 — 을 참조 프록시로 삼아, GW급 발전 클러스터 허브 9곳과 RE100·SMR 확장존에 국가 목표를 배분합니다. 아래 수치는 공개 계획·OSM 스냅샷 기반 탐색용 프록시이며 확정 계획이 아닙니다.</p>
+
+          <div class="mega-align-grid">
+            <div class="mega-align-card">
+              <h4>⚡ 전원 계획 정합</h4>
+              <p>신규 대형원전·SMR(0.7 GW급) 실증을 동남·동해안 허브(고리·한울·월성권)에 직결하고, 석탄 단계 폐지(당진·보령·태안권)의 부지·계통·항만을 AIDC 캠퍼스로 전환합니다. 재생에너지 확충분은 호남 RE100 존(새만금·솔라시도·신안 해상풍력)에 직접 PPA로 연결합니다.</p>
+            </div>
+            <div class="mega-align-card">
+              <h4>🔌 계통 계획 정합</h4>
+              <p>동해안—수도권 HVDC와 서해안 해상풍력 집적 계통 등 공개된 보강 방향의 <b>송전 종점에 허브를 배치</b>해 신설 선로를 최소화합니다. 345/765 kV 인입과 전력계통영향평가를 부지 확보와 동시 착수해 리드타임(3~5년)을 흡수합니다.</p>
+            </div>
+            <div class="mega-align-card">
+              <h4>🏛 제도·수용성 정합</h4>
+              <p>분산에너지특별법 기반 지역 요금·계통영향평가 원스톱, 한전 접속여유 공개(본 도구의 kepco 연동 구조), 상생요금·지방세수·고용 이익공유, 해수·재이용수 냉각 표준화(담수 취수 상한)로 주민 수용성을 선제 확보합니다.</p>
+            </div>
+          </div>
+
+          <div class="mega-scenarios">
+            <b class="mega-block-title">추진 전략 시나리오 비교 · 4안</b>
+            <div class="scenario-grid">
+              <div class="strat-card">
+                <div class="scenario-head"><b>S1 · 초대형 집중형</b><small>0.5~1.5 GW 캠퍼스 6~8곳 집중</small></div>
+                <p class="scenario-mix">고리·당진·보령·서인천 등 GW급 허브에 물량 집중. 프론티어 학습 전용 단일 패브릭(수만 장) 확보 우선.</p>
+                <div class="scenario-pros">＋ 규모의 경제 최대(CAPEX/MW·PUE 최적) · 계통 인입 건수 최소 · 단일 대규모 학습 클러스터 확보 · 운영 인력 집중</div>
+                <div class="scenario-cons">− 지역 전력·용수·민원 임계 초과(허브당 수전 1 GW+) · 단일 장애점(재해·계통사고 시 국가 컴퓨팅 마비) · 대형 인허가 리드타임 4~6년 · 균형발전 취약</div>
+              </div>
+              <div class="strat-card strat-best">
+                <div class="scenario-head"><b>S2 · 허브-스포크 혼합형</b><small>대형 허브 4~5 + 중형 스포크 10~15</small></div>
+                <p class="scenario-mix">학습은 허브(고리·당진·보령·서인천 3.5~4 GW), 서빙·추론은 중형 스포크(세종·전국 회랑 40~100 MW × 12곳)로 분리.</p>
+                <div class="scenario-pros">＋ 워크로드 분리 최적(학습 허브·서빙 스포크) · 스포크는 리드타임 1~2년으로 조기 가동 · 리스크 분산과 규모경제의 균형 · 균형발전 양립 · 본 도구 중형 TOP 5가 스포크 후보</div>
+                <div class="scenario-cons">− 다지점 운영 복잡도 · 백본 투자 증가 · 인허가 다건 병행 관리 필요</div>
+              </div>
+              <div class="strat-card">
+                <div class="scenario-head"><b>S3 · 중소형 분산형</b><small>중형 40 MW × 100+ / 소형 엣지 다수</small></div>
+                <p class="scenario-mix">기존 계통 여유 안에서 전국 분산. 18.4 GW를 채우려면 400곳+ 필요.</p>
+                <div class="scenario-pros">＋ 인허가·민원 최소(지역 수용 용이) · 계통 보강 최소 · 균형발전·재해 회복력 최상 · 착공 즉시 가능</div>
+                <div class="scenario-cons">− 규모의 경제 상실(CAPEX/MW +20~30%, PUE 불리) · 프론티어급 단일 학습 클러스터 불가(분산학습 네트워크 한계) · 400곳+ 운영·보안 비현실적 · 목표 총량 달성 곤란</div>
+              </div>
+              <div class="strat-card">
+                <div class="scenario-head"><b>S4 · 전원 신설 병행형</b><small>AIDC + 전용 전원(SMR·해상풍력·LNG) 동시 건설</small></div>
+                <p class="scenario-mix">기존 계통 제약을 우회해 신규 전원을 캠퍼스에 직결. RE100 존·SMR 허브가 이 유형.</p>
+                <div class="scenario-pros">＋ 계통 제약 근본 해소 · 탄소 목표 정합(RE100·원자력) · <b>2단계 +8.3 GW의 유일한 현실 경로</b> · 전력가격 헤지</div>
+                <div class="scenario-cons">− 전원 건설 리드타임(해상풍력 5~7년·SMR 2030년대 초) · 초기 CAPEX 최대 · 직접 PPA·구역전기 규제 정비 필요 · 2029년 물량에는 기여 제한</div>
+              </div>
+            </div>
+            <table class="gw-table scenario-matrix">
+              <thead><tr><th>평가 축 (1~5)</th><th>S1 집중</th><th>S2 허브-스포크</th><th>S3 분산</th><th>S4 전원병행</th></tr></thead>
+              <tbody>
+                <tr><td>2029 속도</td><td>2</td><td class="ok">4</td><td class="ok">5</td><td>2</td></tr>
+                <tr><td>경제성 (CAPEX/MW·PUE)</td><td class="ok">5</td><td class="ok">4</td><td>2</td><td>3</td></tr>
+                <tr><td>리스크 분산·회복력</td><td class="no">1</td><td class="ok">4</td><td class="ok">5</td><td class="ok">4</td></tr>
+                <tr><td>균형발전·수용성</td><td>2</td><td class="ok">4</td><td class="ok">5</td><td class="ok">4</td></tr>
+                <tr><td>18.4 GW 달성 가능성</td><td>3</td><td class="ok">4</td><td class="no">2</td><td class="ok">5</td></tr>
+                <tr><td>프론티어 컴퓨트 확보</td><td class="ok">5</td><td class="ok">4</td><td class="no">1</td><td class="ok">4</td></tr>
+              </tbody>
+              <tfoot><tr><td><b>합계</b></td><td>18</td><td><b>24</b></td><td>20</td><td>22</td></tfoot>
+            </table>
+            <div class="gw-best scenario-verdict">
+              <span class="gw-best-kicker">최적 전략 제안 · 단계별 하이브리드 (S2 → S4)</span>
+              <div class="gw-best-line"><b>1단계(~2029)는 S2 허브-스포크</b>로 조기 물량과 프론티어 학습 허브를 동시 확보하고, <b>2단계(~2035)는 S4 전원 신설 병행</b>으로 전환해 부족분 +8.3 GW를 채웁니다.</div>
+              <div class="gw-best-tasks">구성: ① 선도 초대형 캠퍼스 2곳(고리·당진권, S1 요소)을 국가 전략사업으로 패스트트랙 ② 중형 스포크 10~12곳(중형 TOP 5 + 폐지화력 부지)으로 2027년부터 순차 가동 ③ 2029년 이후 RE100 존·SMR 직결(S4)로 확장 ④ 소형 엣지(S3)는 공공·지역 서빙 보완재로 한정. — 근거: 속도(스포크)와 경제성(허브)을 1단계에서 균형, 총량 달성(전원 신설)은 2단계로 분리해 리드타임 충돌 회피, 단일 장애점·민원 임계 회피.</div>
+            </div>
+          </div>
+
+          <div id="mega-alloc"></div>
+
+          <div class="mega-timeline">
+            <b>MILESTONES</b>
+            <ol>
+              <li><em>2026</em> 허브 부지·계통용량 예약, 전력계통영향평가·환경평가 동시 착수, 한전 접속여유 데이터 공개 연동</li>
+              <li><em>2027</em> 1단계 착공(서해안 화력벨트 + 동남권 원전벨트 병행), 해수냉각 표준설계 확정, 장기 PPA·REC 표준계약</li>
+              <li><em>2029</em> <b>1단계 8.4 GW 상업운전</b> — 허브 직접연계 5.1 GW + 폐지화력 부지 전환·수도권 서빙존 3.3 GW</li>
+              <li><em>2031</em> 동해안—수도권 HVDC 개통 → 한울·월성권 확장 개시, 호남 RE100 존 1차 가동</li>
+              <li><em>2033</em> SMR 실증기 직결(동해안 허브), 해상풍력 8 GW급 PPA 물량 단계 투입</li>
+              <li><em>2035</em> <b>2단계 18.4 GW</b> — 허브 확장 10.1 GW + RE100 존 3.7 GW + SMR 직결 2.0 GW + HVDC 재배분 2.6 GW</li>
+            </ol>
+          </div>
+
+          <div class="mega-challenges">
+            <b>해결 과제</b>
+            <div class="mega-challenge-grid">
+              <span><i>계통</i>계통영향평가 리드타임 단축(현행 수년) · 초고압 변압기 등 기자재 공급망(주문 후 3년+) · 접속여유 정보 비대칭</span>
+              <span><i>수용성</i>송전선로 경과지·원전 인접 주민 수용성 · 상생요금/이익공유 법제화 · 지역별 민원 페널티 관리(본 도구 지표)</span>
+              <span><i>물·환경</i>냉각수 담수 경합(허브당 연 수백만 m³) → 해수·중수 표준화 · 온배수·백연 규제 · 탄소집약도(RE 조달 전 0.4+ kg/kWh)</span>
+              <span><i>재해</i>동남권 양산단층대 내진 상향 · 서해안 저지대 침수 대비 · 이중화(멀티 허브)로 국가 컴퓨팅 연속성 확보</span>
+              <span><i>인력·운영</i>비수도권 허브 운영인력(허브당 수백 명) 주거·통근 · 원격 운영센터(시설 현지-인력 대도시) 표준모델</span>
+              <span><i>경제성</i>산업용 요금 경쟁력(해외 대비) · CAPEX 조달(허브당 수조 원) · 컴퓨트 수요 변동 리스크의 단계 증설 설계</span>
+            </div>
+          </div>
+          <div class="registry-note">본 섹션은 공개된 전력계획 방향과 OSM 스냅샷·탐색용 프록시(직접연계 10%/20%, RE100·SMR 목표치)로 구성한 정책 시뮬레이션입니다. 확정된 정부 계획·사업 승인·계통 접속 보장을 의미하지 않습니다.</div>
         </section>
 
         <section class="brief-section panel-card" id="simulation-brief">
