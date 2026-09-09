@@ -428,7 +428,10 @@ async function loadGridData() {
     // 교통 스냅샷은 선택적: 없어도 전력망 기능은 유지하고 프록시 선형으로 degrade
     try {
       const transportRes = await fetch("data/kr_transport.json");
-      if (transportRes.ok) gridData.transport = await transportRes.json();
+      if (transportRes.ok) {
+        gridData.transport = await transportRes.json();
+        window.dispatchEvent(new Event("aidc:transport"));
+      }
     } catch (error) {
       console.warn("Transport snapshot unavailable; keeping schematic corridors.", error);
     }
@@ -1732,6 +1735,19 @@ function bindUI() {
 // The 3D workspace previews arbitrary coordinates without mutating 2D selection.
 // Only its explicit apply action commits a placement to the existing analysis.
 window.AIDCSiting = {
+  transport: () => {
+    const snapshot = gridData?.transport;
+    const roads = snapshot?.road || contextData.transport.map((line) => line.coords);
+    const rails = snapshot?.rail || contextData.railAir.rail.map((line) => ({ c: line.coords, h: 0 }));
+    const groups = [
+      { kind: "road", label: "고속도로", lines: roads },
+      { kind: "rail", label: "일반철도", lines: rails.filter((line) => !line.h).map((line) => line.c) },
+      { kind: "highspeed", label: "고속철도", lines: rails.filter((line) => line.h).map((line) => line.c) },
+    ];
+    return { snapshot: !!snapshot, extracted: snapshot?.extracted || "", roadCount: roads.length, railCount: rails.length,
+      data: { type: "FeatureCollection", features: groups.filter((group) => group.lines.length).map((group) => ({ type: "Feature", properties: { kind: group.kind, label: group.label, schematic: !snapshot }, geometry: { type: "MultiLineString", coordinates: group.lines.map((line) => line.map(([lat, lng]) => [lng, lat])) } })) },
+    };
+  },
   powerGrid: () => {
     const snapshot = gridData?.lines;
     const lines = snapshot ? snapshot.lines : fallbackLines.map((line) => ({ v: line.voltage, c: line.coords }));
