@@ -5,6 +5,9 @@
   "description": "대한민국 AIDC 입지 적합도 시각화 및 전력 수요 시뮬레이터",
   "scripts": {
     "dev": "python3 -m http.server 4173",
-    "start": "python3 -m http.server 4173"
+    "start": "python3 -m http.server 4173",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check app.js && node --check siting-3d.js && node --check siting-massing.mjs"
   }
 }

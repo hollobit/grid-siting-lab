@@ -48,7 +48,31 @@ GitHub Pages: https://hollobit.github.io/grid-siting-lab/
 - 후보지 기준 반경 50 km의 OpenStreetMap Overpass API 동기화 버튼
 - 외부 지도 리소스가 불가능한 환경을 위한 내장 fallback map (스냅샷 로드 실패 시 개략도 프록시로 degrade)
 
-## 데이터와 주의사항
+## AIDC 3D 입지 탐색
+
+상단 **3D VIEW** 또는 지도 도구 **3D 입지 탐색**에서 주요 5개 후보지와 전국 추천 지점을 엽니다. MapLibre GL JS 5.24.0(BSD-3-Clause)의 실제 미터 단위 돌출 모델로 데이터홀·전력동·냉각 설비·개념 용지를 표시합니다. 주황색 이동점 드래그, 지도 클릭 배치, 방향키/20 m 이동, 회전, 층수 변경을 지원합니다. 배치안을 브라우저에 최대 12개 저장하고 **이 위치를 2D 분석에 적용**으로 기존 분석에 연결합니다.
+
+GPU 자동 모델은 다음 공식 정격 사양을 사용합니다(2026-09-09 확인). 최대전력 기준 설치 수량이며 동일한 처리 성능 비교나 평균 소비전력 예측이 아닙니다.
+
+| 프로필 | 단위당 GPU | 단위 최대전력 | 기본 시스템/랙 | 냉각 |
+| --- | ---: | ---: | ---: | --- |
+| DGX H100 | 8 | 10.2 kW | 4 | 공랭 |
+| DGX H200 | 8 | 10.2 kW | 4 (H100 구성 준용 가정) | 공랭 |
+| DGX B200 | 8 | 14.3 kW | 2 | 공랭 |
+| GB200 NVL72 | 72/랙 | 약 120 kW/랙 | 1 | 액체·공랭 혼합 |
+| GB300 NVL72 | 72/랙 | 최대 142 kW/랙 | 1 | 액체냉각 |
+
+공식 출처: [H100/H200 사양](https://docs.nvidia.com/dgx/dgxh100-user-guide/introduction-to-dgxh100.html), [H100 랙 구성](https://docs.nvidia.com/dgx-superpod/design-guides/dgx-superpod-data-center-design-h100/latest/planning.html), [B200 사양](https://docs.nvidia.com/dgx/dgxb200-user-guide/dgxb200-user-guide.pdf), [B200 랙 구성](https://docs.nvidia.com/dgx-pdf/nvidia-dgx-superpod-data-center-best-practices-with-dgx-b200.pdf), [GB200](https://docs.nvidia.com/dgx/dgxgb200-user-guide/hardware.html), [GB300](https://docs.nvidia.com/enterprise-reference-architectures/nvl72-ai-factory/latest/components.html).
+
+계산: 시스템 수 = `ceil(IT MW × 1000 × GPU 시스템 전력 비중 / 단위 최대 kW)`, 랙 수 = `ceil(시스템 수 / 랙당 시스템)`. 연면적 = `랙 수 × 통로 포함 m²/랙 × 지원 공간 배수 / GPU 시스템 전력 비중`. 기본 비중 85%, 통로 포함 3.6 m²/랙, 지원 공간 1.8배는 **제품의 조정 가능한 계획 가정**이며 NVIDIA 면적 사양이 아닙니다. 비중의 나머지를 네트워크·스토리지 공간으로 같은 비율만큼 예약합니다. H100/H200은 같은 외형·전력 사양으로 같은 크기가 나옵니다. B200 3–4대/랙은 특수 고밀도 공랭·랙 설계가 필요합니다. 수량 반올림으로 설치 정격전력이 목표보다 약간 커질 수 있습니다.
+
+건물 바닥면적 = 연면적/층수; 데이터홀은 최대 20 MW/동, 층고 6 m + 지붕 2 m + 냉각 설비 2.5 m, 도로 20 m, 서비스 구역 55 m, 최소 용지 폭 100 m의 개념 배치입니다. 전력동·운영동은 별도이며 표시 연면적은 데이터홀만 합산합니다. GPU별 실제 CDU·배관·열제거 설계는 포함하지 않습니다. 직접 지정 모드에서는 기존 `IT MW × m²/MW` 면적 가정을 사용합니다.
+
+지도: [OpenFreeMap](https://openfreemap.org/quick_start/) / OSM 건물, [Mapterhorn](https://mapterhorn.com/) 선택형 지형(Terrarium DEM), [MapLibre](https://maplibre.org/maplibre-gl-js/docs/). 주변 건물·높이는 누락 또는 추정일 수 있습니다. 외부 지도/WebGL 실패 시 오류·재시도와 2D 복귀를 제공합니다. 지형·필지 경계·소유권·용도지역·인허가는 배치 적합 판정을 보장하지 않습니다. 위치 점수는 기존 표준 N+1·PUE 1.25·하이브리드 냉각 프록시를 재사용하며 GPU별 냉각 차이는 점수에 반영하지 않습니다.
+
+검증은 `npm test`, 구문 검사는 `npm run check`, 배포용 정적 산출물은 `npm run build` (`dist/`)입니다. `.openai/hosting.json`은 요청된 OpenAI Sites 배포 대상을 연결합니다. 참조 X 영상은 접근 제한으로 직접 재생하지 못했으므로 영상과의 시각적 동일성을 주장하지 않습니다.
+
+## 기존 데이터의 주의사항
 
 화면의 국가 통계는 [OpenInfraMap South Korea Stats](https://openinframap.org/stats/area/South%20Korea)의 2026-06-25 스냅샷을 반영했습니다. OpenInfraMap은 OpenStreetMap 데이터를 직접 사용하며, 공개 매핑 데이터는 실제 네트워크의 완전한 표현이 아닐 수 있습니다.
 

@@ -366,6 +366,7 @@ function renderSelected(site) {
   if ($("#power-priority")) applyModelWeights(false);
   $$(".candidate-item").forEach((item) => item.classList.toggle("selected", item.dataset.id === site.id));
   calculateScenario(false);
+  window.dispatchEvent(new CustomEvent("aidc:selection", { detail: { id: site.id, coords: [...site.coords] } }));
 }
 
 function renderCandidates() {
@@ -789,6 +790,7 @@ function rankRecommendations() {
     recommendedByClass[cls.id] = picks;
   });
   drawRecommendationLayer();
+  window.dispatchEvent(new Event("aidc:recommendations"));
 }
 
 // ---- 초대형 신설 후보: GW급 발전 클러스터 인접지 + 직접연계(전용선로·PPA) 전제 ----
@@ -844,6 +846,7 @@ function computeHyperNewbuild() {
   drawHyperNewbuildLayer();
   renderHyperNewbuild();
   computeGwStrategy(hubs);
+  window.dispatchEvent(new Event("aidc:recommendations"));
 }
 
 // ---- GW 전략: 1 GW+ 최적 입지와 정부 로드맵(2029 8.4 GW → 2035 18.4 GW) 배분 ----
@@ -1728,6 +1731,36 @@ function bindUI() {
     if (event.key === "Escape") $("#info-modal").classList.remove("open");
   });
 }
+
+// The 3D workspace previews arbitrary coordinates without mutating 2D selection.
+// Only its explicit apply action commits a placement to the existing analysis.
+window.AIDCSiting = {
+  selected: () => ({ id: selected.id, name: selected.name, coords: [...selected.coords] }),
+  classes: () => aidcClasses.map((item) => ({ ...item })),
+  candidates: () => {
+    const entries = candidates.map((site) => ({ id: site.id, name: site.name, coords: [...site.coords], group: "주요 후보지" }));
+    (hyperNewbuild || []).forEach(({ site, maxIt }) => entries.push({ id: site.id, name: site.name, coords: [...site.coords], group: "발전원 인접 신설", suggestedMw: 300, directLinkMw: maxIt }));
+    const seen = new Set(entries.map((site) => site.coords.join(",")));
+    Object.entries(recommendedByClass || {}).forEach(([id, picks]) => {
+      picks.slice(0, 3).forEach(({ site }, index) => {
+        const key = site.coords.join(",");
+        if (seen.has(key)) return;
+        seen.add(key);
+        entries.push({ id: `${id}-${index}-${key}`, name: `${aidcClasses.find((cls) => cls.id === id).label} 추천 ${index + 1} · ${site.name}`, coords: [...site.coords], group: "규모별 추천", suggestedMw: aidcClasses.find((cls) => cls.id === id).itMw });
+      });
+    });
+    return entries;
+  },
+  evaluate: (lat, lng, itMw) => {
+    if (![lat, lng, itMw].every(Number.isFinite) || lat < 33 || lat > 39.5 || lng < 124 || lng > 132 || itMw < 1 || itMw > 2000) throw new RangeError("대한민국 분석 범위와 1–2,000 MW 규모를 확인하세요.");
+    const site = candidates.find((entry) => approxKm(entry.coords, [lat, lng]) < .03) || buildCustomSite(lat, lng);
+    const fit = classFitScore(site, { itMw });
+    const limits = siteSupplyLimits(site);
+    return { name: site.name, score: fit.score, ok: fit.ok, bottleneck: fit.bottleneck, supply: fit.supply, gridMax: limits.gridMax, waterMax: limits.waterMax, gridAvailable: !!gridData, nearestHv: site.gridReality?.nearestHv ?? null, mw50: site.gridReality?.mw50 ?? null, penalty: fit.penalty, waterStress: envFor(site).waterStress };
+  },
+  apply: (lat, lng) => selectCustomLocation(lat, lng),
+  scenarioMw: () => Number($("#load-range").value),
+};
 
 document.addEventListener("DOMContentLoaded", async () => {
   bindUI();

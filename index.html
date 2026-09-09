@@ -26,6 +26,7 @@
 
         <nav class="main-nav" aria-label="주요 메뉴">
           <button class="nav-item active" data-scroll-target="map-section">MAP <span>01</span></button>
+          <button class="nav-item" data-open-3d type="button">3D VIEW</button>
           <button class="nav-item" data-scroll-target="scenario-panel">SCENARIO <span>02</span></button>
           <button class="nav-item" data-scroll-target="mega-project">MEGA PROJECT <span>03</span></button>
           <button class="nav-item" data-scroll-target="sources">DATA SOURCES <span>04</span></button>
@@ -127,6 +128,7 @@
               <button class="map-tool" data-layer="facilities"><span class="tool-icon dc-icon">▣</span> FACILITIES</button>
               <button class="map-tool" data-layer="hazard"><span class="tool-icon hazard-icon">▲</span> HAZARD</button>
               <button class="map-tool" data-mega-toggle type="button"><span class="tool-icon mega-icon">◆</span> MEGA</button>
+              <button class="map-tool" data-open-3d type="button">▧ 3D 입지 탐색</button>
             </div>
             <div class="mega-map-options" id="mega-map-options" hidden>
               <button class="mega-opt" id="map-mega-p1" type="button"><i class="mega-dot p1"></i> 1단계 2029 · 허브 9곳</button>
@@ -536,5 +538,6 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="app.js"></script>
+    <script type="module" src="siting-3d.js"></script>
   </body>
 </html>
