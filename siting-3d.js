@@ -2,7 +2,7 @@ import { campusModel, MASSING_DEFAULTS, GPU_PROFILES, offsetCoordinate, validLoc
 
 const MAPLIBRE_VERSION = "5.24.0";
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
-const TERRAIN_URL = "https://tiles.mapterhorn.com/tilejson.json";
+const TERRAIN_TILES = "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp";
 const STORAGE_KEY = "aidc-siting-placements-v1";
 const bridge = window.AIDCSiting;
 let dialog, map3d, modelMarker, priorFocus, libraryPromise;
@@ -107,7 +107,7 @@ async function initMap() {
   try {
     const lib = await loadLibrary();
     if (map3d) { modelMarker?.remove(); candidateMarkers.forEach((marker) => marker.remove()); candidateMarkers = []; map3d.remove(); }
-    const instance = new lib.Map({ container: el("siting-map"), style: STYLE_URL, center: anchor, zoom: 15.6, pitch: 58, bearing: -25, maxPitch: 75, maxZoom: 19, maxBounds: [[124, 33], [132, 39.5]], attributionControl: true });
+    const instance = new lib.Map({ container: el("siting-map"), style: STYLE_URL, center: anchor, zoom: 15.6, pitch: 58, bearing: -25, maxPitch: 75, maxZoom: 19, maxBounds: [[124, 33], [132, 39.5]], attributionControl: { compact: true } });
     map3d = instance;
     instance.addControl(new lib.NavigationControl({ visualizePitch: true }), "top-right");
     instance.addControl(new lib.ScaleControl({ unit: "metric" }), "bottom-left");
@@ -116,7 +116,7 @@ async function initMap() {
     instance.on("error", (event) => {
       if (map3d !== instance) return;
       console.warn("3D map resource unavailable", event.error?.message);
-      if (event.sourceId === "aidc-terrain" && terrainOn) { instance.setTerrain(null); terrainOn = false; el("siting-terrain").setAttribute("aria-pressed", "false"); el("siting-terrain").textContent = "지형 켜기"; status("지형 자료 연결 실패 · 평면 지도를 유지합니다."); }
+      if (terrainOn && (event.sourceId === "aidc-terrain" || /mapterhorn/i.test(`${event.error?.message || ""} ${event.error?.url || ""}`))) { instance.setTerrain(null); terrainOn = false; el("siting-terrain").setAttribute("aria-pressed", "false"); el("siting-terrain").textContent = "지형 켜기"; status("지형 자료 연결 실패 · 평면 지도를 유지합니다."); }
       else if (ready) status("일부 배경지도 자료를 불러오지 못했습니다. 캠퍼스는 개념 배치로 표시됩니다.");
     });
     instance.on("load", () => {
@@ -201,14 +201,15 @@ function evaluateLocation() {
 function focusModel() {
   if (!map3d || !ready) return;
   const size = Math.max(currentModel.metrics.width, currentModel.metrics.depth);
-  const zoom = Math.max(12.3, Math.min(17, 17 - Math.log2(size / 130)));
+  const viewportAdjustment = Math.max(0, Math.log2(900 / Math.max(280, map3d.getCanvas().clientWidth)));
+  const zoom = Math.max(10, Math.min(17, 17 - Math.log2(size / 130) - viewportAdjustment));
   map3d.flyTo({ center: anchor, zoom, pitch: 58, bearing: options.rotation - 25, duration: animate() ? 900 : 0 });
 }
 
 function toggleTerrain() {
   if (!ready) { status("지도가 준비된 후 지형을 켤 수 있습니다."); return; }
   terrainOn = !terrainOn;
-  if (terrainOn && !map3d.getSource("aidc-terrain")) map3d.addSource("aidc-terrain", { type: "raster-dem", url: TERRAIN_URL, tileSize: 512, encoding: "terrarium", attribution: '<a href="https://mapterhorn.com/">Mapterhorn</a>' });
+  if (terrainOn && !map3d.getSource("aidc-terrain")) map3d.addSource("aidc-terrain", { type: "raster-dem", tiles: [TERRAIN_TILES], tileSize: 512, encoding: "terrarium", minzoom: 0, maxzoom: 12, attribution: '<a href="https://mapterhorn.com/attribution">© Mapterhorn</a>' });
   map3d.setTerrain(terrainOn ? { source: "aidc-terrain", exaggeration: 1 } : null);
   el("siting-terrain").setAttribute("aria-pressed", String(terrainOn)); el("siting-terrain").textContent = terrainOn ? "지형 끄기" : "지형 켜기";
   status(terrainOn ? "30 m급 지형을 불러옵니다 · 부지 경사는 측량으로 확인하세요." : "평면 지형에서 건물과 부지 크기를 비교합니다.");

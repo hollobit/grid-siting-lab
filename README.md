@@ -70,7 +70,7 @@ GPU 자동 모델은 다음 공식 정격 사양을 사용합니다(2026-09-09 �
 
 지도: [OpenFreeMap](https://openfreemap.org/quick_start/) / OSM 건물, [Mapterhorn](https://mapterhorn.com/) 선택형 지형(Terrarium DEM), [MapLibre](https://maplibre.org/maplibre-gl-js/docs/). 주변 건물·높이는 누락 또는 추정일 수 있습니다. 외부 지도/WebGL 실패 시 오류·재시도와 2D 복귀를 제공합니다. 지형·필지 경계·소유권·용도지역·인허가는 배치 적합 판정을 보장하지 않습니다. 위치 점수는 기존 표준 N+1·PUE 1.25·하이브리드 냉각 프록시를 재사용하며 GPU별 냉각 차이는 점수에 반영하지 않습니다.
 
-검증은 `npm test`, 구문 검사는 `npm run check`, 배포용 정적 산출물은 `npm run build` (`dist/`)입니다. `.openai/hosting.json`은 요청된 OpenAI Sites 배포 대상을 연결합니다. 참조 X 영상은 접근 제한으로 직접 재생하지 못했으므로 영상과의 시각적 동일성을 주장하지 않습니다.
+검증은 `npm test`, 구문 검사는 `npm run check`, 배포용 정적 산출물은 `npm run build` (`dist/`)입니다. `.openai/hosting.json`은 요청된 OpenAI Sites 배포 대상을 연결합니다. GitHub Pages는 기존 main 브랜치 루트 배포를 사용합니다. Mapterhorn은 [전 지구 z0–12 범위](https://mapterhorn.com/data-access/)를 명시적으로 지정해 확대 시 존재하지 않는 고해상도 타일을 요청하지 않습니다. 참조 X 영상은 접근 제한으로 직접 재생하지 못했으므로 영상과의 시각적 동일성을 주장하지 않습니다.
 
 ## 기존 데이터의 주의사항
 
