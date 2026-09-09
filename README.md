@@ -64,6 +64,10 @@ GitHub Pages: https://hollobit.github.io/grid-siting-lab/
 
 ## AIDC 3D 입지 탐색
 
+**지형과 건물 상세**에서 등고선과 지형 음영을 각각 켜고 끕니다. 3D 지형은 기본으로 켜지며 원래 높이(1×)를 유지합니다. 확대하면 20 m 간격의 등고선·100 m 굵은 선과 고도(m) 라벨, 축소하면 100 m/500 m 간격을 표시합니다. [maplibre-contour 0.1.0](https://github.com/onthegomap/maplibre-contour)(BSD-3-Clause)이 Mapterhorn DEM에서 브라우저 Worker로 등고선을 계산합니다. [Mapterhorn 공식 예제](https://github.com/mapterhorn/mapterhorn/blob/main/website/examples/contour/example.html)의 z12 DEM → z14 등고선 설정을 사용하며 **20 m는 고도 간격으로, 원본 약 30 m 지형의 공간 해상도를 개선하지 않습니다**. 등고선 연결이 실패해도 기본 지도·AIDC 계산을 유지하고 버튼으로 재시도할 수 있습니다.
+
+주변 건물은 OSM 형상·높이를 높이별 색상과 입면 명암, 지면의 건물 윤곽선으로 표현합니다. 건물을 클릭하면 지면 기준 상단/하단 높이를 확인합니다. 제공자 추정 높이와 누락된 건물이 포함되며, 지붕·창문·실측 3D 모델이나 경사 기반 건축 가능 판정은 제공하지 않습니다.
+
 **도시 3D 탐색**에서 낮·노을·밤 조명과 지도 색상, 도시 전경, 자동 회전, 주요 후보지 5곳의 자동 투어를 사용할 수 있습니다. 투어는 현재 MW/GPU 설정으로 각 후보지에 캠퍼스를 옮겨 비교합니다. 지도·설정 조작, 창 닫기, 탭 숨김은 자동 움직임을 중단하며 기기의 움직임 줄이기 설정을 존중합니다.
 
 주변 건물 높이는 1× 또는 4×로 표시합니다. 4×는 도시 형태를 강조하는 시각 효과로, AIDC·용지·지형의 수치나 GPU 규모 계산을 변경하지 않습니다. 실제 높이를 비교할 때는 1×를 사용합니다. [참조 게시물의 공개 사본](https://zamantika.com/synabreu/status/2096557555086725159)과 [작성자의 지도](https://seoul-3d-atlas.synabreu.chatgpt.site/)에서 확인한 탐색·시간대·자동 투어 개념을 후보지 지도에 적용했습니다. X 영상 프레임은 접근 제한으로 직접 확인하지 못했습니다.

@@ -8,6 +8,6 @@
     "start": "python3 -m http.server 4173",
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check app.js && node --check siting-3d.js && node --check siting-massing.mjs"
+    "check": "node --check app.js && node --check siting-3d.js && node --check siting-massing.mjs && node --check siting-topography.mjs"
   }
 }

@@ -20,6 +20,9 @@
 .siting-field { margin-bottom: 16px; }
 .siting-scene-controls { border-bottom: 1px solid var(--line); margin-bottom: 20px; padding-bottom: 10px; }
 .siting-scene-controls h3 { margin: 0 0 12px; font-size: 16px; }
+.siting-scene-controls a { color: var(--cyan); font-size: 12px; }
+.siting-building-info { color: #17333e; font: 13px/1.6 var(--sans); }
+.siting-building-info p { margin: 6px 0; }
 .siting-scene-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .siting-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .siting-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 12px 0; }

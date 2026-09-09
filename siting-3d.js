@@ -1,8 +1,8 @@
 import { campusModel, MASSING_DEFAULTS, GPU_PROFILES, offsetCoordinate, validLocation, validateSavedPlacements } from "./siting-massing.mjs";
+import { addTopography, demSourceOptions } from "./siting-topography.mjs";
 
 const MAPLIBRE_VERSION = "5.24.0";
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
-const TERRAIN_TILES = "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp";
 const STORAGE_KEY = "aidc-siting-placements-v1";
 const bridge = window.AIDCSiting;
 let dialog, map3d, modelMarker, priorFocus, libraryPromise;
@@ -11,6 +11,7 @@ let anchor, options = { ...MASSING_DEFAULTS }, currentModel, analysis, lastGoodA
 let selectedId = "", saved = [], dirty = false;
 let sceneTheme = "day", heightScale = 1, contextLayers = [];
 let motionMode = "", tourTimer, orbitFrame;
+let topography;
 const el = (id) => dialog.querySelector(`#${id}`);
 const format = (value, digits = 0) => Number(value).toLocaleString("ko-KR", { maximumFractionDigits: digits });
 const animate = () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -30,6 +31,7 @@ function createWorkspace() {
     <div class="siting-layout">
       <aside class="siting-controls" aria-label="AIDC 배치 설정">
         <div class="siting-scene-controls"><h3>도시 3D 탐색</h3><div class="siting-field-row"><div class="siting-field"><label for="siting-theme">빛과 분위기</label><select id="siting-theme"><option value="day">낮</option><option value="sunset">노을</option><option value="night">밤</option></select></div><div class="siting-field"><label for="siting-height-scale">주변 건물 높이</label><select id="siting-height-scale"><option value="1">1× 실제 축척</option><option value="4">4× 강조 보기</option></select></div></div><div class="siting-scene-actions"><button type="button" class="siting-button" id="siting-city">도시 전경</button><button type="button" class="siting-button" id="siting-orbit" aria-pressed="false">자동 회전</button><button type="button" class="siting-button" id="siting-tour" aria-pressed="false">후보지 투어</button></div><p class="siting-caption" id="siting-scene-note">주변 건물과 AIDC 모두 1× 축척. 높이 누락·추정 건물이 포함됩니다.</p></div>
+        <div class="siting-scene-controls"><h3>지형과 건물 상세</h3><div class="siting-scene-actions"><button type="button" class="siting-button" id="siting-contours" aria-pressed="true">등고선</button><button type="button" class="siting-button" id="siting-shade" aria-pressed="true">지형 음영</button></div><p class="siting-caption" id="siting-topography-note" role="status">확대 시 등고선 20 m · 굵은 선 100 m. 약 30 m DEM 기반으로, 측량 해상도를 뜻하지 않습니다.</p><p class="siting-caption">주변 건물은 높이에 따라 색이 짙어집니다. 건물을 클릭하면 지도에 기록된 높이를 확인할 수 있습니다. OSM에 없는 건물·세부 형상은 표시되지 않습니다.</p><a href="https://github.com/onthegomap/maplibre-contour" target="_blank" rel="noopener">등고선: maplibre-contour</a></div>
         <div class="siting-field"><label for="siting-candidate">탐색할 후보지</label><select id="siting-candidate"></select></div>
         <div class="siting-presets" aria-label="AIDC 규모 선택"><button type="button" class="siting-button" data-mw="10">10<small>소형 MW</small></button><button type="button" class="siting-button" data-mw="40">40<small>중형 MW</small></button><button type="button" class="siting-button" data-mw="100">100<small>대형 MW</small></button><button type="button" class="siting-button" data-mw="300">300<small>초대형 MW</small></button></div>
         <div class="siting-field"><label for="siting-mw">IT 전력 규모 · MW</label><input id="siting-mw" type="number" min="1" max="2000" step="1" value="40" required /></div>
@@ -56,6 +58,8 @@ function createWorkspace() {
   el("siting-city").onclick = () => { if (ready) map3d.flyTo({ center: anchor, zoom: 14.2, pitch: 62, bearing: -25, duration: animate() ? 1000 : 0 }); };
   el("siting-orbit").onclick = toggleOrbit;
   el("siting-tour").onclick = toggleTour;
+  el("siting-contours").onclick = () => { if (ready && topography) el("siting-contours").setAttribute("aria-pressed", String(topography.toggleContours())); };
+  el("siting-shade").onclick = () => { if (ready && topography) el("siting-shade").setAttribute("aria-pressed", String(topography.toggleShade())); };
   for (const eventName of ["pointerdown", "keydown", "wheel", "touchstart"]) dialog.addEventListener(eventName, (event) => {
     if (!event.target.closest("#siting-orbit, #siting-tour")) stopMotion();
   }, true);
@@ -118,6 +122,8 @@ async function initMap() {
   stopMotion();
   initializing = true;
   ready = false; terrainOn = false;
+  topography = null;
+  el("siting-contours").setAttribute("aria-pressed", "true"); el("siting-shade").setAttribute("aria-pressed", "true");
   el("siting-terrain").setAttribute("aria-pressed", "false"); el("siting-terrain").textContent = "지형 켜기";
   el("siting-error").hidden = true; status("3D 지도를 불러옵니다.");
   el("siting-retry").disabled = true;
@@ -142,6 +148,7 @@ async function initMap() {
       const buildings = instance.getStyle().layers.find((layer) => layer["source-layer"] === "building" && layer.type === "fill");
       if (buildings && !instance.getStyle().layers.some((layer) => layer.type === "fill-extrusion")) instance.addLayer({ id: "aidc-context-buildings", source: buildings.source, "source-layer": "building", type: "fill-extrusion", minzoom: 13, paint: { "fill-extrusion-color": "#b2c2c1", "fill-extrusion-height": ["coalesce", ["get", "render_height"], 9], "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0], "fill-extrusion-opacity": .8 } });
       contextLayers = instance.getStyle().layers;
+      topography = addTopography(instance, (message) => { if (map3d === instance) el("siting-topography-note").textContent = message; });
       instance.addSource("aidc-campus", { type: "geojson", data: currentModel });
       instance.addLayer({ id: "aidc-campus-solid", type: "fill-extrusion", source: "aidc-campus", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": ["get", "base"], "fill-extrusion-opacity": .98 } });
       instance.addSource("aidc-boundary", { type: "geojson", data: currentModel.footprint });
@@ -152,9 +159,21 @@ async function initMap() {
       modelMarker.on("drag", () => { const point = modelMarker.getLngLat(); if (validLocation([point.lng, point.lat])) { anchor = [point.lng, point.lat]; regenerate(false); } });
       modelMarker.on("dragend", () => { const point = modelMarker.getLngLat(); moveTo(validLocation([point.lng, point.lat]) ? [point.lng, point.lat] : lastGoodAnchor); });
       handle.addEventListener("keydown", (event) => { const steps = { ArrowUp: [0, 20], ArrowDown: [0, -20], ArrowLeft: [-20, 0], ArrowRight: [20, 0] }; if (steps[event.key]) { event.preventDefault(); moveTo(offsetCoordinate(anchor, ...steps[event.key])); } });
-      instance.on("click", (event) => { if (placing) moveTo([event.lngLat.lng, event.lngLat.lat]); });
+      instance.on("click", (event) => {
+        if (placing) { moveTo([event.lngLat.lng, event.lngLat.lat]); return; }
+        const layers = contextLayers.filter((layer) => layer.type === "fill-extrusion" && layer["source-layer"] === "building").map((layer) => layer.id);
+        if (!layers.length) return;
+        const building = instance.queryRenderedFeatures(event.point, { layers })[0];
+        if (!building) return;
+        const h = Number(building.properties.render_height), base = Number(building.properties.render_min_height || 0);
+        const content = document.createElement("div"); content.className = "siting-building-info";
+        const title = document.createElement("strong"); title.textContent = "주변 건물 · 지도 높이";
+        const detail = document.createElement("p"); detail.textContent = Number.isFinite(h) ? `상단 ${format(h, 1)} m · 하단 ${format(base, 1)} m (지면 기준). 지도 제공자의 추정값이 포함될 수 있습니다.` : "높이 미기록 · 표시 높이 9 m 가정.";
+        const scale = document.createElement("p"); scale.textContent = `현재 화면 ${heightScale}× 강조 · 수치는 원래 지도 값입니다.`;
+        content.append(title, detail, scale); new lib.Popup({ maxWidth: "260px" }).setLngLat(event.lngLat).setDOMContent(content).addTo(instance);
+      });
       instance.getCanvas().addEventListener("webglcontextlost", () => error("3D 그래픽 연결이 끊겼습니다. 배치안을 저장한 뒤 다시 시도하거나 2D 지도로 돌아가세요."));
-      ready = true; applyScene(); regenerate(true); refreshCandidates(); focusModel(); status("도시 전경·빛·자동 투어로 탐색하거나 주황색 이동점을 드래그하세요.");
+      ready = true; applyScene(); toggleTerrain(); regenerate(true); refreshCandidates(); focusModel(); status("등고선·음영으로 산악 지형을 확인하고 건물을 클릭해 높이를 살펴보세요.");
     });
   } catch (failure) { error(failure.message); }
   finally { initializing = false; el("siting-retry").disabled = false; }
@@ -242,13 +261,17 @@ function applyScene() {
     if (layer.type === "line") properties["line-color"] = palette && (/water/i.test(layer.id) ? palette.water : palette.road);
     if (layer.type === "symbol") { properties["text-color"] = palette?.text; properties["text-halo-color"] = palette?.land; }
     if (layer.type === "fill-extrusion") {
-      properties["fill-extrusion-color"] = palette?.building;
+      const colors = sceneTheme === "night" ? ["#849eac", "#567c94", "#345774"] : sceneTheme === "sunset" ? ["#ead2ad", "#bb926c", "#86634e"] : ["#dce1dc", "#9cafa9", "#607f7c"];
+      properties["fill-extrusion-color"] = ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 9], 0, colors[0], 40, colors[1], 150, colors[2]];
+      properties["fill-extrusion-opacity"] = .95;
+      properties["fill-extrusion-vertical-gradient"] = true;
       properties["fill-extrusion-height"] = ["*", heightScale, ["coalesce", layer.paint?.["fill-extrusion-height"] ?? ["get", "render_height"], 9]];
       properties["fill-extrusion-base"] = ["*", heightScale, ["coalesce", layer.paint?.["fill-extrusion-base"] ?? 0, 0]];
     }
     for (const [name, value] of Object.entries(properties)) map3d.setPaintProperty(layer.id, name, value ?? layer.paint?.[name] ?? null);
   }
   map3d.setLight({ anchor: "viewport", color: palette?.light || "#ffffff", intensity: sceneTheme === "night" ? .35 : .5, position: sceneTheme === "sunset" ? [1.5, 250, 80] : [1.5, 210, 30] });
+  topography?.setTheme(sceneTheme);
 }
 
 function stopMotion() {
@@ -298,7 +321,7 @@ function toggleTour() {
 function toggleTerrain() {
   if (!ready) { status("지도가 준비된 후 지형을 켤 수 있습니다."); return; }
   terrainOn = !terrainOn;
-  if (terrainOn && !map3d.getSource("aidc-terrain")) map3d.addSource("aidc-terrain", { type: "raster-dem", tiles: [TERRAIN_TILES], tileSize: 512, encoding: "terrarium", minzoom: 0, maxzoom: 12, attribution: '<a href="https://mapterhorn.com/attribution">© Mapterhorn</a>' });
+  if (terrainOn && !map3d.getSource("aidc-terrain")) map3d.addSource("aidc-terrain", demSourceOptions());
   map3d.setTerrain(terrainOn ? { source: "aidc-terrain", exaggeration: 1 } : null);
   el("siting-terrain").setAttribute("aria-pressed", String(terrainOn)); el("siting-terrain").textContent = terrainOn ? "지형 끄기" : "지형 켜기";
   status(terrainOn ? "30 m급 지형을 불러옵니다 · 부지 경사는 측량으로 확인하세요." : "평면 지형에서 건물과 부지 크기를 비교합니다.");
