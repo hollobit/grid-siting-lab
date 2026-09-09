@@ -23,6 +23,8 @@
 .siting-scene-controls a { color: var(--cyan); font-size: 12px; }
 .siting-building-info { color: #17333e; font: 13px/1.6 var(--sans); }
 .siting-building-info p { margin: 6px 0; }
+.siting-power-key { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px; font-size: 12px; }
+.siting-power-key span::before { content: ""; display: inline-block; width: 16px; height: 3px; margin-right: 5px; vertical-align: middle; background: var(--grid-color); }
 .siting-scene-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .siting-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .siting-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 12px 0; }

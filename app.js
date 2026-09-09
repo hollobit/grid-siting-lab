@@ -113,6 +113,11 @@ const fallbackLines = [
   { voltage: 154, coords: [[37.28, 127.43], [37.04, 127.78], [36.62, 128.56], [36.25, 129.02]] },
 ];
 
+const powerHubs = [
+  [36.97, 126.55, "당진 계통 허브"], [36.52, 127.28, "세종 계통 허브"], [35.02, 126.72, "나주 계통 허브"],
+  [37.28, 127.43, "이천 계통 허브"], [35.54, 129.31, "울산 계통 허브"], [37.06, 126.42, "서해 EHV"],
+];
+
 const contextData = {
   urban: [
     [37.5665, 126.978, "서울 배후 도시권", 13], [37.456, 126.705, "인천 배후 도시권", 9], [36.35, 127.385, "대전 배후 도시권", 10],
@@ -419,6 +424,7 @@ async function loadGridData() {
     if (!linesRes.ok || !plantsRes.ok) throw new Error("grid snapshot missing");
     const [lines, plants] = await Promise.all([linesRes.json(), plantsRes.json()]);
     gridData = { lines, plants };
+    window.dispatchEvent(new Event("aidc:grid"));
     // 교통 스냅샷은 선택적: 없어도 전력망 기능은 유지하고 프록시 선형으로 degrade
     try {
       const transportRes = await fetch("data/kr_transport.json");
@@ -1037,11 +1043,7 @@ function drawPowerLayer() {
       mapLayers.power.push(glow, path);
     });
   }
-  const substations = [
-    [36.97, 126.55, "당진 계통 허브"], [36.52, 127.28, "세종 계통 허브"], [35.02, 126.72, "나주 계통 허브"],
-    [37.28, 127.43, "이천 계통 허브"], [35.54, 129.31, "울산 계통 허브"], [37.06, 126.42, "서해 EHV"],
-  ];
-  substations.forEach(([lat, lng, label]) => {
+  powerHubs.forEach(([lat, lng, label]) => {
     const marker = L.circleMarker([lat, lng], { radius: 4, color: "#d8f1f1", weight: 1.5, fillColor: "#20373d", fillOpacity: 1 })
       .bindTooltip(label, { direction: "top", className: "dark-tooltip" })
       .on("click", () => selectCustomLocation(lat, lng))
@@ -1730,6 +1732,17 @@ function bindUI() {
 // The 3D workspace previews arbitrary coordinates without mutating 2D selection.
 // Only its explicit apply action commits a placement to the existing analysis.
 window.AIDCSiting = {
+  powerGrid: () => {
+    const snapshot = gridData?.lines;
+    const lines = snapshot ? snapshot.lines : fallbackLines.map((line) => ({ v: line.voltage, c: line.coords }));
+    return {
+      snapshot: !!snapshot, extracted: snapshot?.extracted || "", count: lines.length,
+      data: { type: "FeatureCollection", features: [
+        ...lines.map((line) => ({ type: "Feature", properties: { kind: "line", voltage: line.v, color: colorForVoltage(line.v), schematic: !snapshot }, geometry: { type: "LineString", coordinates: line.c.map(([lat, lng]) => [lng, lat]) } })),
+        ...powerHubs.map(([lat, lng, name]) => ({ type: "Feature", properties: { kind: "hub", name, schematic: true }, geometry: { type: "Point", coordinates: [lng, lat] } })),
+      ] },
+    };
+  },
   selected: () => ({ id: selected.id, name: selected.name, coords: [...selected.coords] }),
   classes: () => aidcClasses.map((item) => ({ ...item })),
   candidates: () => {

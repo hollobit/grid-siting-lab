@@ -12,6 +12,8 @@ let selectedId = "", saved = [], dirty = false;
 let sceneTheme = "day", heightScale = 1, contextLayers = [];
 let motionMode = "", tourTimer, orbitFrame;
 let topography;
+let powerOn = true;
+const powerLayerIds = ["aidc-power-casing", "aidc-power-lines", "aidc-power-hubs"];
 const el = (id) => dialog.querySelector(`#${id}`);
 const format = (value, digits = 0) => Number(value).toLocaleString("ko-KR", { maximumFractionDigits: digits });
 const animate = () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -32,6 +34,7 @@ function createWorkspace() {
       <aside class="siting-controls" aria-label="AIDC 배치 설정">
         <div class="siting-scene-controls"><h3>도시 3D 탐색</h3><div class="siting-field-row"><div class="siting-field"><label for="siting-theme">빛과 분위기</label><select id="siting-theme"><option value="day">낮</option><option value="sunset">노을</option><option value="night">밤</option></select></div><div class="siting-field"><label for="siting-height-scale">주변 건물 높이</label><select id="siting-height-scale"><option value="1">1× 실제 축척</option><option value="4">4× 강조 보기</option></select></div></div><div class="siting-scene-actions"><button type="button" class="siting-button" id="siting-city">도시 전경</button><button type="button" class="siting-button" id="siting-orbit" aria-pressed="false">자동 회전</button><button type="button" class="siting-button" id="siting-tour" aria-pressed="false">후보지 투어</button></div><p class="siting-caption" id="siting-scene-note">주변 건물과 AIDC 모두 1× 축척. 높이 누락·추정 건물이 포함됩니다.</p></div>
         <div class="siting-scene-controls"><h3>지형과 건물 상세</h3><div class="siting-scene-actions"><button type="button" class="siting-button" id="siting-contours" aria-pressed="true">등고선</button><button type="button" class="siting-button" id="siting-shade" aria-pressed="true">지형 음영</button></div><p class="siting-caption" id="siting-topography-note" role="status">확대 시 등고선 20 m · 굵은 선 100 m. 약 30 m DEM 기반으로, 측량 해상도를 뜻하지 않습니다.</p><p class="siting-caption">주변 건물은 높이에 따라 색이 짙어집니다. 건물을 클릭하면 지도에 기록된 높이를 확인할 수 있습니다. OSM에 없는 건물·세부 형상은 표시되지 않습니다.</p><a href="https://github.com/onthegomap/maplibre-contour" target="_blank" rel="noopener">등고선: maplibre-contour</a></div>
+        <div class="siting-scene-controls"><h3>전력망 · Power grid</h3><div class="siting-scene-actions"><button type="button" class="siting-button" id="siting-power" aria-pressed="true">전력망 표시</button><button type="button" class="siting-button" id="siting-power-overview">주변 전력망</button></div><div class="siting-power-key"><span style="--grid-color:#aa91ff">765 kV</span><span style="--grid-color:#f36d91">345 kV</span><span style="--grid-color:#52d1dc">154 kV 이하·기타</span><span style="--grid-color:#d8f1f1">○ 개념 계통 허브</span></div><p class="siting-caption" id="siting-power-note" role="status"></p><p class="siting-caption">선을 클릭하면 전압 정보를 표시합니다. 경로는 지형 표면에 표시하며 철탑·전선 높이 또는 접속 여유용량을 뜻하지 않습니다.</p><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap · ODbL 1.0</a></div>
         <div class="siting-field"><label for="siting-candidate">탐색할 후보지</label><select id="siting-candidate"></select></div>
         <div class="siting-presets" aria-label="AIDC 규모 선택"><button type="button" class="siting-button" data-mw="10">10<small>소형 MW</small></button><button type="button" class="siting-button" data-mw="40">40<small>중형 MW</small></button><button type="button" class="siting-button" data-mw="100">100<small>대형 MW</small></button><button type="button" class="siting-button" data-mw="300">300<small>초대형 MW</small></button></div>
         <div class="siting-field"><label for="siting-mw">IT 전력 규모 · MW</label><input id="siting-mw" type="number" min="1" max="2000" step="1" value="40" required /></div>
@@ -60,6 +63,8 @@ function createWorkspace() {
   el("siting-tour").onclick = toggleTour;
   el("siting-contours").onclick = () => { if (ready && topography) el("siting-contours").setAttribute("aria-pressed", String(topography.toggleContours())); };
   el("siting-shade").onclick = () => { if (ready && topography) el("siting-shade").setAttribute("aria-pressed", String(topography.toggleShade())); };
+  el("siting-power").onclick = () => { powerOn = !powerOn; syncPowerVisibility(); };
+  el("siting-power-overview").onclick = () => { if (ready) map3d.flyTo({ center: anchor, zoom: 10.5, pitch: 50, bearing: -25, duration: animate() ? 900 : 0 }); };
   for (const eventName of ["pointerdown", "keydown", "wheel", "touchstart"]) dialog.addEventListener(eventName, (event) => {
     if (!event.target.closest("#siting-orbit, #siting-tour")) stopMotion();
   }, true);
@@ -149,6 +154,7 @@ async function initMap() {
       if (buildings && !instance.getStyle().layers.some((layer) => layer.type === "fill-extrusion")) instance.addLayer({ id: "aidc-context-buildings", source: buildings.source, "source-layer": "building", type: "fill-extrusion", minzoom: 13, paint: { "fill-extrusion-color": "#b2c2c1", "fill-extrusion-height": ["coalesce", ["get", "render_height"], 9], "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0], "fill-extrusion-opacity": .8 } });
       contextLayers = instance.getStyle().layers;
       topography = addTopography(instance, (message) => { if (map3d === instance) el("siting-topography-note").textContent = message; });
+      addPowerGrid(instance);
       instance.addSource("aidc-campus", { type: "geojson", data: currentModel });
       instance.addLayer({ id: "aidc-campus-solid", type: "fill-extrusion", source: "aidc-campus", paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": ["get", "base"], "fill-extrusion-opacity": .98 } });
       instance.addSource("aidc-boundary", { type: "geojson", data: currentModel.footprint });
@@ -161,6 +167,16 @@ async function initMap() {
       handle.addEventListener("keydown", (event) => { const steps = { ArrowUp: [0, 20], ArrowDown: [0, -20], ArrowLeft: [-20, 0], ArrowRight: [20, 0] }; if (steps[event.key]) { event.preventDefault(); moveTo(offsetCoordinate(anchor, ...steps[event.key])); } });
       instance.on("click", (event) => {
         if (placing) { moveTo([event.lngLat.lng, event.lngLat.lat]); return; }
+        if (powerOn) {
+          const p = event.point;
+          const feature = instance.queryRenderedFeatures([[p.x - 5, p.y - 5], [p.x + 5, p.y + 5]], { layers: ["aidc-power-hubs", "aidc-power-lines"] })[0];
+          if (feature) {
+            const info = document.createElement("div"); info.className = "siting-building-info";
+            const props = feature.properties;
+            info.textContent = props.kind === "hub" ? `${props.name} · 2D와 같은 개념 위치입니다. 실제 변전소 위치·접속 용량은 확인되지 않았습니다.` : `${props.voltage > 0 ? `${props.voltage} kV` : "전압 미분류"} 송전 경로 · ${props.schematic ? "개략도이며 실제 경로가 아닙니다." : "OSM 스냅샷 · 전압은 태그의 최대값, 형상은 표시용으로 단순화됐습니다."}`;
+            new lib.Popup({ maxWidth: "280px" }).setLngLat(event.lngLat).setDOMContent(info).addTo(instance); return;
+          }
+        }
         const layers = contextLayers.filter((layer) => layer.type === "fill-extrusion" && layer["source-layer"] === "building").map((layer) => layer.id);
         if (!layers.length) return;
         const building = instance.queryRenderedFeatures(event.point, { layers })[0];
@@ -190,6 +206,27 @@ function refreshCandidates() {
   if (!ready) return;
   candidateMarkers.forEach((marker) => marker.remove());
   candidateMarkers = entries.map((entry) => { const point = document.createElement("button"); point.type = "button"; point.className = "siting-candidate"; point.title = entry.name; point.setAttribute("aria-label", `${entry.name} 3D로 보기`); point.onclick = (event) => { event.stopPropagation(); selectedId = entry.id; if (entry.suggestedMw) options.mw = entry.suggestedMw; moveTo([entry.coords[1], entry.coords[0]], { focus: true, label: entry.name }); }; return new window.maplibregl.Marker({ element: point }).setLngLat([entry.coords[1], entry.coords[0]]).addTo(map3d); });
+}
+
+function syncPowerVisibility() {
+  el("siting-power").setAttribute("aria-pressed", String(powerOn));
+  for (const id of powerLayerIds) if (map3d?.getLayer(id)) map3d.setLayoutProperty(id, "visibility", powerOn ? "visible" : "none");
+}
+
+function refreshPowerGrid() {
+  if (!map3d?.getSource("aidc-power")) return;
+  const grid = bridge.powerGrid();
+  map3d.getSource("aidc-power").setData(grid.data);
+  el("siting-power-note").textContent = grid.snapshot ? `2D와 같은 OSM 송전선 ${format(grid.count)}개 · ${grid.extracted} 추출. 허브 6곳은 개념 위치입니다.` : "전력망 스냅샷 미연결 · 2D와 같은 개략 선형을 표시합니다. 실제 송전 경로가 아닙니다.";
+}
+
+function addPowerGrid(instance) {
+  instance.addSource("aidc-power", { type: "geojson", data: { type: "FeatureCollection", features: [] }, attribution: '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap · ODbL</a>' });
+  const width = ["match", ["get", "voltage"], 765, 3.5, 345, 2.8, 154, 2, 1.3];
+  instance.addLayer({ id: "aidc-power-casing", type: "line", source: "aidc-power", filter: ["==", ["get", "kind"], "line"], paint: { "line-color": "#102432", "line-width": ["+", width, 2], "line-opacity": .7 } });
+  instance.addLayer({ id: "aidc-power-lines", type: "line", source: "aidc-power", filter: ["==", ["get", "kind"], "line"], paint: { "line-color": ["get", "color"], "line-width": width, "line-opacity": .95 } });
+  instance.addLayer({ id: "aidc-power-hubs", type: "circle", source: "aidc-power", filter: ["==", ["get", "kind"], "hub"], paint: { "circle-radius": 5, "circle-color": "#20373d", "circle-stroke-color": "#d8f1f1", "circle-stroke-width": 2 } });
+  refreshPowerGrid(); syncPowerVisibility();
 }
 
 function regenerate(evaluate = false) {
@@ -379,6 +416,7 @@ function syncWorkspaceFromUrl() {
   else if (dialog?.open) closeWorkspace();
 }
 window.addEventListener("hashchange", syncWorkspaceFromUrl);
+window.addEventListener("aidc:grid", refreshPowerGrid);
 document.addEventListener("visibilitychange", () => { if (document.hidden) stopMotion(); });
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", syncWorkspaceFromUrl, { once: true });
 else syncWorkspaceFromUrl();
