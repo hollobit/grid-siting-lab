@@ -4,6 +4,8 @@ GRID / SITING LAB의 변경 이력. 배포: https://hollobit.github.io/grid-siti
 
 ## 2026-09-09
 
+- 참조 도시 지도에서 확인한 낮/노을/밤, 도시 전경, 자동 회전·후보지 투어, 주변 건물 4× 높이 강조 추가. AIDC의 실제 크기 계산은 유지.
+
 - 모든 상단 메뉴의 직접 URL 지원: `#map-section`, `#siting-3d`, `#scenario-panel`, `#mega-project`, `#sources`. 새로고침·뒤로/앞으로 가기와 3D 창 상태 동기화.
 
 - **3D VIEW**: 주요 후보지·전국 추천 지점의 MapLibre 3D 지도, 선택형 지형, 실제 미터 단위 AIDC 개념 모델.
