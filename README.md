@@ -12,6 +12,20 @@ npm run dev
 
 GitHub Pages: https://hollobit.github.io/grid-siting-lab/
 
+### 메뉴 직접 접근 URL
+
+아래 해시 주소는 GitHub Pages와 OpenAI Sites에서 동일하게 동작합니다. 메뉴 링크는 새 탭 열기·주소 복사·새로고침·뒤로/앞으로 가기를 지원합니다.
+
+| 메뉴 | GitHub Pages 직접 링크 |
+| --- | --- |
+| MAP | [지도](https://hollobit.github.io/grid-siting-lab/#map-section) |
+| 3D VIEW | [3D 입지 탐색](https://hollobit.github.io/grid-siting-lab/#siting-3d) |
+| SCENARIO | [시나리오](https://hollobit.github.io/grid-siting-lab/#scenario-panel) |
+| MEGA PROJECT | [대규모 프로젝트](https://hollobit.github.io/grid-siting-lab/#mega-project) |
+| DATA SOURCES | [데이터 출처](https://hollobit.github.io/grid-siting-lab/#sources) |
+
+`#siting-3d`로 접속하면 3D 화면이 바로 열립니다. 닫기·Escape·2D 적용은 `#map-section`으로 이동하고, 브라우저 뒤로/앞으로 가기는 URL에 맞춰 3D 창과 선택 메뉴를 동기화합니다. URL은 메뉴 위치를 지정하며 GPU 설정·배치안은 기존 브라우저 저장 기능으로 보관합니다.
+
 ## 구현 범위
 
 - OpenInfraMap / OpenStreetMap 기준 한국 통계 스냅샷 표시

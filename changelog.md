@@ -4,6 +4,8 @@ GRID / SITING LAB의 변경 이력. 배포: https://hollobit.github.io/grid-siti
 
 ## 2026-09-09
 
+- 모든 상단 메뉴의 직접 URL 지원: `#map-section`, `#siting-3d`, `#scenario-panel`, `#mega-project`, `#sources`. 새로고침·뒤로/앞으로 가기와 3D 창 상태 동기화.
+
 - **3D VIEW**: 주요 후보지·전국 추천 지점의 MapLibre 3D 지도, 선택형 지형, 실제 미터 단위 AIDC 개념 모델.
 - IT MW·GPU 종류·랙 구성·면적 가정·층수에 따른 건물과 용지 자동 생성. H100/H200/B200/GB200/GB300 공식 사양과 계획 가정 분리.
 - 드래그·지도 클릭·20 m 이동·회전, 배치안 로컬 저장/복원/삭제, 기존 전력·용수 적합도 및 2D 위치 적용.

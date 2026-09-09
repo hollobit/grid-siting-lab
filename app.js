@@ -1680,12 +1680,7 @@ function bindUI() {
     showToast(`${selected.name}를 시나리오 대상지로 고정했습니다`);
   });
   $$("[data-scroll-target]").forEach((item) => item.addEventListener("click", () => {
-    const target = document.getElementById(item.dataset.scrollTarget);
-    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (item.classList.contains("nav-item")) {
-      $$(".nav-item").forEach((nav) => nav.classList.remove("active"));
-      item.classList.add("active");
-    }
+    location.hash = item.dataset.scrollTarget;
   }));
   $$(".map-tool").forEach((tool) => tool.addEventListener("click", () => {
     const layer = tool.dataset.layer;
@@ -1762,8 +1757,20 @@ window.AIDCSiting = {
   scenarioMw: () => Number($("#load-range").value),
 };
 
+function syncMenuFromUrl() {
+  const route = location.hash || "#map-section";
+  $$(".nav-item").forEach((item) => {
+    const active = item.getAttribute("href") === route;
+    item.classList.toggle("active", active);
+    if (active) item.setAttribute("aria-current", "location");
+    else item.removeAttribute("aria-current");
+  });
+}
+window.addEventListener("hashchange", syncMenuFromUrl);
+
 document.addEventListener("DOMContentLoaded", async () => {
   bindUI();
+  syncMenuFromUrl();
   const hasGrid = await loadGridData();
   if (hasGrid) {
     computeGridReality();

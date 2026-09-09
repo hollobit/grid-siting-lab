@@ -48,8 +48,13 @@ function createWorkspace() {
       <section class="siting-stage" aria-label="후보지 3D 지도"><div id="siting-map" class="siting-map" aria-label="회전·확대 가능한 3D 지도"></div><div class="siting-map-tools"><button type="button" class="siting-button" id="siting-place" aria-pressed="false">위치 배치</button><button type="button" class="siting-button" id="siting-focus">모델 중심</button><button type="button" class="siting-button" id="siting-top">위에서 보기</button><button type="button" class="siting-button" id="siting-terrain" aria-pressed="false">지형 켜기</button><p id="siting-status" class="siting-status" role="status">3D 지도를 불러옵니다.</p></div><div class="siting-location"><strong id="siting-location-name"></strong><p id="siting-coords"></p></div><div class="siting-legend"><span>데이터홀</span><span>전력동</span><span>냉각 설비</span></div><div id="siting-error" class="siting-error" hidden><h3>3D 지도를 열 수 없습니다</h3><p id="siting-error-message"></p><button type="button" class="siting-button" id="siting-retry">다시 시도</button></div></section>
     </div>`;
   document.body.append(dialog);
-  el("siting-close").onclick = () => dialog.close();
-  dialog.addEventListener("close", () => { document.body.style.overflow = ""; priorFocus?.focus(); });
+  el("siting-close").onclick = dismissWorkspace;
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); dismissWorkspace(); });
+  dialog.addEventListener("close", () => {
+    if (dialog.open) return;
+    document.body.style.overflow = "";
+    priorFocus?.focus({ preventScroll: true });
+  });
   el("siting-candidate").onchange = () => {
     const candidate = bridge.candidates().find((entry) => entry.id === el("siting-candidate").value);
     if (!candidate) return;
@@ -72,7 +77,7 @@ function createWorkspace() {
   el("siting-top").onclick = () => map3d?.easeTo({ pitch: 0, bearing: 0, duration: animate() ? 450 : 0 });
   el("siting-terrain").onclick = toggleTerrain;
   el("siting-retry").onclick = initMap;
-  el("siting-apply").onclick = () => { bridge.apply(anchor[1], anchor[0]); dirty = false; dialog.close(); };
+  el("siting-apply").onclick = () => { bridge.apply(anchor[1], anchor[0]); dirty = false; dismissWorkspace(); };
   el("siting-save").onclick = savePlacement;
   try { saved = validateSavedPlacements(JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]")); } catch { saved = []; }
   renderSaved();
@@ -239,6 +244,7 @@ function renderSaved() {
 }
 
 async function openWorkspace() {
+  if (dialog?.open) return;
   priorFocus = document.activeElement;
   if (!dialog) createWorkspace();
   const current = bridge.selected();
@@ -249,7 +255,24 @@ async function openWorkspace() {
   if (!map3d || !ready) await initMap(); else { map3d.resize(); focusModel(); }
 }
 
-document.querySelectorAll("[data-open-3d]").forEach((button) => button.addEventListener("click", openWorkspace));
+function dismissWorkspace() {
+  location.hash = "map-section";
+  closeWorkspace();
+}
+
+function closeWorkspace() {
+  // Release immediately; the queued dialog close event may wait behind site scoring.
+  document.body.style.overflow = "";
+  dialog.close();
+}
+
+function syncWorkspaceFromUrl() {
+  if (location.hash === "#siting-3d") openWorkspace();
+  else if (dialog?.open) closeWorkspace();
+}
+window.addEventListener("hashchange", syncWorkspaceFromUrl);
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", syncWorkspaceFromUrl, { once: true });
+else syncWorkspaceFromUrl();
 window.addEventListener("aidc:recommendations", () => { refreshCandidates(); if (dialog?.open) evaluateLocation(); });
 window.addEventListener("aidc:selection", () => {
   if (!dialog || dialog.open) return;

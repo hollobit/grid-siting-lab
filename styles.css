@@ -39,6 +39,7 @@ a { color: inherit; text-decoration: none; }
 .main-nav { display: flex; align-items: center; gap: 4px; height: 100%; }
 .nav-item { position: relative; height: 100%; padding: 0 20px; color: var(--muted); background: none; border: 0; font: 10px var(--mono); letter-spacing: .12em; transition: color .2s; }
 .nav-item span { color: var(--faint); font-size: 8px; margin-left: 6px; }
+.nav-item { display: inline-flex; align-items: center; }
 .nav-item::after { content: ""; position: absolute; bottom: -1px; left: 20px; right: 20px; height: 2px; background: transparent; }
 .nav-item:hover, .nav-item.active { color: var(--ink); }
 .nav-item.active::after { background: var(--orange); }
